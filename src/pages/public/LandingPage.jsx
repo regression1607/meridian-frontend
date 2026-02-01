@@ -14,106 +14,99 @@ const features = [
     icon: Users,
     title: 'User Management',
     description: 'Hierarchical user roles - Super Admin, Principal, Teachers, Students, Parents & Staff',
-    status: 'coming_soon',
+    status: 'available',
     color: 'from-blue-500 to-blue-600'
   },
   {
     icon: GraduationCap,
     title: 'Academic Management',
     description: 'Classes, Sections, Subjects, Timetables & Comprehensive Curriculum Management',
-    status: 'coming_soon',
+    status: 'available',
     color: 'from-indigo-500 to-indigo-600'
   },
   {
     icon: BookOpen,
     title: 'Homework & Assignments',
-    description: 'Create, assign, submit & grade assignments with AI-powered plagiarism detection',
-    status: 'coming_soon',
+    description: 'Create, assign, submit & grade assignments with AI-powered content generation',
+    status: 'available',
     color: 'from-purple-500 to-purple-600'
   },
   {
     icon: Calendar,
     title: 'Attendance & Leave',
     description: 'Digital attendance tracking, leave management & visual calendar integration',
-    status: 'coming_soon',
+    status: 'available',
     color: 'from-green-500 to-green-600'
   },
   {
     icon: BookOpenCheck,
     title: 'Examinations',
-    description: 'Exam scheduling, online assessments, grading & AI-powered report cards',
-    status: 'coming_soon',
+    description: 'Exam scheduling, AI question paper generation, grading & report cards',
+    status: 'available',
     color: 'from-orange-500 to-orange-600'
   },
   {
     icon: CreditCard,
     title: 'Fee Management',
-    description: 'Fee structures, online payments (Razorpay/Stripe), receipts & defaulter tracking',
-    status: 'coming_soon',
+    description: 'Fee structures, payment tracking, receipts & defaulter management',
+    status: 'available',
     color: 'from-emerald-500 to-emerald-600'
   },
   {
     icon: UserCheck,
     title: 'Parent Portal',
     description: 'Child progress tracking, fee payment, PTM scheduling & direct communication',
-    status: 'coming_soon',
+    status: 'available',
     color: 'from-pink-500 to-pink-600'
   },
   {
     icon: Library,
     title: 'Library Management',
     description: 'Book catalog, issue/return tracking, fines & digital resource management',
-    status: 'coming_soon',
+    status: 'available',
     color: 'from-amber-500 to-amber-600'
   },
   {
     icon: Bus,
     title: 'Transport Management',
-    description: 'Bus routes, driver management, student allocation & GPS tracking',
-    status: 'coming_soon',
+    description: 'Bus routes, driver management, student allocation & route planning',
+    status: 'available',
     color: 'from-cyan-500 to-cyan-600'
   },
   {
     icon: Building2,
     title: 'Hostel Management',
     description: 'Room allocation, mess menu, visitor logs & complaint management',
-    status: 'coming_soon',
+    status: 'available',
     color: 'from-rose-500 to-rose-600'
   },
   {
     icon: Wallet,
     title: 'Salary & Payroll',
-    description: 'Employee salaries, payroll processing, payslips & tax calculations (TDS/PF/ESI)',
-    status: 'coming_soon',
+    description: 'Employee salaries, payroll processing, payslips & tax calculations',
+    status: 'available',
     color: 'from-teal-500 to-teal-600'
   },
   {
     icon: ClipboardList,
     title: 'Admission Management',
     description: 'Online applications, document verification, merit lists & enrollment',
-    status: 'coming_soon',
+    status: 'available',
     color: 'from-violet-500 to-violet-600'
   },
   {
     icon: PartyPopper,
     title: 'Events Management',
     description: 'School events, competitions, registrations & certificate generation',
-    status: 'coming_soon',
+    status: 'available',
     color: 'from-fuchsia-500 to-fuchsia-600'
   },
   {
     icon: Brain,
-    title: 'AI-Powered Features',
-    description: 'Smart analytics, auto-grading, question paper generation & personalized learning',
-    status: 'coming_soon',
+    title: 'AI Assistant & Reports',
+    description: 'Smart AI chatbot, question paper generation, homework creation & analytics',
+    status: 'available',
     color: 'from-red-500 to-red-600'
-  },
-  {
-    icon: Shield,
-    title: 'Security & Compliance',
-    description: 'Data encryption, GDPR/FERPA compliance, 2FA & comprehensive audit logs',
-    status: 'coming_soon',
-    color: 'from-slate-500 to-slate-600'
   },
   {
     icon: Globe,
@@ -121,6 +114,20 @@ const features = [
     description: 'Support for English, Hindi, Spanish, French, Arabic (RTL) & more',
     status: 'coming_soon',
     color: 'from-sky-500 to-sky-600'
+  },
+  {
+    icon: Shield,
+    title: 'OTP & 2FA Login',
+    description: 'Secure authentication with OTP verification and two-factor authentication',
+    status: 'coming_soon',
+    color: 'from-slate-500 to-slate-600'
+  },
+  {
+    icon: Bell,
+    title: 'Third-Party Integrations',
+    description: 'WhatsApp, Zoom, Google Meet, Google Calendar & Razorpay payment gateway',
+    status: 'coming_soon',
+    color: 'from-indigo-500 to-violet-600'
   }
 ]
 
@@ -134,10 +141,10 @@ const institutionTypes = [
 ]
 
 const stats = [
-  { value: '17+', label: 'Core Features' },
-  { value: '33+', label: 'Database Collections' },
-  { value: '100+', label: 'API Endpoints' },
-  { value: '8+', label: 'Languages Supported' }
+  { value: '17+', label: 'Core Modules' },
+  { value: '2 Sec', label: 'Generate Question Papers' },
+  { value: '100%', label: 'AI Powered' },
+  { value: '24/7', label: 'Cloud Hosted' }
 ]
 
 export default function LandingPage() {
@@ -146,7 +153,29 @@ export default function LandingPage() {
 
   const handleNotify = (e) => {
     e.preventDefault()
-    alert(`Thank you! We'll notify you at ${email} when we launch.`)
+    if (!email) return
+    
+    // Create Google Calendar event URL
+    const eventTitle = encodeURIComponent('Meridian EMS Demo Request')
+    const eventDetails = encodeURIComponent(`Demo request from: ${email}\n\nSchedule a demo call to explore Meridian EMS features.`)
+    const eventLocation = encodeURIComponent('Google Meet')
+    
+    // Set event for next week
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() + 7)
+    startDate.setHours(10, 0, 0, 0)
+    const endDate = new Date(startDate)
+    endDate.setHours(11, 0, 0, 0)
+    
+    const formatDate = (date) => date.toISOString().replace(/-|:|\.\d{3}/g, '')
+    const startStr = formatDate(startDate)
+    const endStr = formatDate(endDate)
+    
+    // Google Calendar URL with pre-filled guest
+    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${eventTitle}&details=${eventDetails}&location=${eventLocation}&dates=${startStr}/${endStr}&add=ekanshrajput1607@gmail.com,${encodeURIComponent(email)}`
+    
+    // Open Google Calendar in new tab
+    window.open(calendarUrl, '_blank')
     setEmail('')
   }
 
@@ -351,11 +380,17 @@ export default function LandingPage() {
                 transition={{ delay: index * 0.05 }}
                 className="group relative bg-white rounded-2xl p-6 border border-gray-100 hover:border-primary-200 hover:shadow-lg transition-all duration-300"
               >
-                {/* Coming Soon Badge */}
+                {/* Status Badge */}
                 <div className="absolute top-4 right-4">
-                  <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
-                    Coming Soon
-                  </span>
+                  {feature.status === 'coming_soon' ? (
+                    <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
+                      Coming Soon
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                      Available
+                    </span>
+                  )}
                 </div>
 
                 {/* Icon */}
@@ -461,7 +496,7 @@ export default function LandingPage() {
       </section>
 
       {/* AI Features Highlight */}
-      <section className="py-16 md:py-24">
+      <section className="py-16 md:py-24 bg-gradient-to-br from-purple-50 to-indigo-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <motion.div
@@ -469,24 +504,24 @@ export default function LandingPage() {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
             >
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-100 rounded-full mb-4">
-                <Brain className="w-4 h-4 text-purple-600" />
-                <span className="text-sm font-medium text-purple-700">AI-Powered</span>
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-full mb-4">
+                <Sparkles className="w-4 h-4" />
+                <span className="text-sm font-medium">AI-Enabled Platform</span>
               </div>
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-                Intelligence at Every Step
+                Powered by Advanced AI
               </h2>
               <p className="text-lg text-gray-600 mb-6">
-                Leverage Google Gemini AI via LangChain for smarter education management.
+                Built with <strong>Advanced AI</strong> for lightning-fast, intelligent education management. Generate question papers in seconds!
               </p>
               <ul className="space-y-3">
                 {[
-                  'Auto-grade essays with AI feedback',
-                  'Generate question papers from topics or PDFs',
-                  'Predict at-risk students early',
-                  'Smart timetable scheduling',
-                  'Personalized learning recommendations',
-                  '24/7 AI chatbot support'
+                  'AI Question Paper Generator - Create papers from topics instantly',
+                  'AI Homework Creator - Generate assignments with one click',
+                  'Smart AI Chatbot - 24/7 assistant for teachers & admins',
+                  'Auto-generate Reports & Analytics',
+                  'Intelligent Search across all modules',
+                  'Coming: Predictive Analytics & Personalized Learning'
                 ].map((item, i) => (
                   <li key={i} className="flex items-center gap-3 text-gray-700">
                     <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
@@ -494,6 +529,11 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
+              <div className="mt-6">
+                <Link to="/login" className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition font-medium">
+                  Try AI Features <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
             </motion.div>
 
             <motion.div
@@ -502,26 +542,34 @@ export default function LandingPage() {
               viewport={{ once: true }}
               className="relative"
             >
-              <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl p-8 text-white">
+              <div className="bg-gradient-to-br from-purple-600 to-indigo-700 rounded-2xl p-8 text-white shadow-2xl">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                    <Brain className="w-6 h-6" />
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <Brain className="w-7 h-7" />
                   </div>
                   <div>
-                    <h3 className="font-semibold">Meridian AI Assistant</h3>
-                    <p className="text-sm text-purple-200">Always ready to help</p>
+                    <h3 className="font-bold text-lg">Meridian AI Assistant</h3>
+                    <p className="text-sm text-purple-200">Powered by AI • Always ready</p>
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <div className="bg-white/10 rounded-lg p-3">
-                    <p className="text-sm text-purple-100">Generate a 10th grade Physics test on Newton's Laws</p>
+                  <div className="bg-white/10 rounded-lg p-4 border border-white/20">
+                    <p className="text-sm text-purple-100 mb-1">You:</p>
+                    <p className="text-white">Generate a 10th grade Physics test on Newton's Laws with 20 MCQs</p>
                   </div>
-                  <div className="bg-white/20 rounded-lg p-3 ml-8">
-                    <p className="text-sm">Creating 20 questions covering all three laws of motion with varying difficulty levels...</p>
+                  <div className="bg-white/20 rounded-lg p-4 ml-4">
+                    <p className="text-sm text-purple-200 mb-1">AI Assistant:</p>
+                    <p className="text-white text-sm">Creating your question paper with 20 MCQs on Newton's Laws of Motion...</p>
+                    <div className="mt-3 flex gap-2">
+                      <span className="px-2 py-1 bg-green-500/30 text-green-200 text-xs rounded">Easy: 5</span>
+                      <span className="px-2 py-1 bg-yellow-500/30 text-yellow-200 text-xs rounded">Medium: 10</span>
+                      <span className="px-2 py-1 bg-red-500/30 text-red-200 text-xs rounded">Hard: 5</span>
+                    </div>
                   </div>
                 </div>
-                <div className="mt-6 text-center text-sm text-purple-200">
-                  Coming Soon
+                <div className="mt-6 flex items-center justify-center gap-2 text-sm text-purple-200">
+                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                  Live & Available Now
                 </div>
               </div>
             </motion.div>
@@ -538,10 +586,10 @@ export default function LandingPage() {
             viewport={{ once: true }}
           >
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Be the First to Know
+              Schedule a Demo
             </h2>
             <p className="text-lg text-gray-600 mb-8">
-              Get early access and exclusive updates when we launch
+              Enter your email to schedule a demo call and explore Meridian EMS features
             </p>
 
             <form onSubmit={handleNotify} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
@@ -555,20 +603,23 @@ export default function LandingPage() {
               />
               <button
                 type="submit"
-                className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium"
+                className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium flex items-center justify-center gap-2"
               >
-                Notify Me
+                <Calendar className="w-4 h-4" /> Book Demo
               </button>
             </form>
+            <p className="text-sm text-gray-500 mt-3">
+              Opens Google Calendar to schedule a meeting
+            </p>
 
             <div className="mt-12 flex flex-col md:flex-row justify-center items-center gap-6 text-gray-600">
               <div className="flex items-center gap-2">
                 <Mail className="w-5 h-5 text-primary-600" />
-                <span>contact@meridian-ems.com</span>
+                <span>N/A</span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="w-5 h-5 text-primary-600" />
-                <span>+91-9999999999</span>
+                <span>N/A</span>
               </div>
             </div>
           </motion.div>
@@ -621,15 +672,15 @@ export default function LandingPage() {
               <ul className="space-y-2 text-sm">
                 <li className="flex items-center gap-2">
                   <Mail className="w-4 h-4 text-primary-400" />
-                  <span>contact@meridian-ems.com</span>
+                  <span>N/A</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Phone className="w-4 h-4 text-primary-400" />
-                  <span>+91-9999999999</span>
+                  <span>N/A</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-primary-400" />
-                  <span>Bangalore, India</span>
+                  <span>N/A</span>
                 </li>
               </ul>
             </div>
