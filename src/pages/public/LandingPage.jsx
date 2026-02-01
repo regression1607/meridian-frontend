@@ -8,6 +8,7 @@ import {
   School, Building, BookOpenCheck, UserCheck, Bell, BarChart3,
   Smartphone, Monitor, ArrowRight, Mail, Phone, MapPin
 } from 'lucide-react'
+import config from '../../config'
 
 const features = [
   {
@@ -172,7 +173,7 @@ export default function LandingPage() {
     const endStr = formatDate(endDate)
     
     // Google Calendar URL with pre-filled guest
-    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${eventTitle}&details=${eventDetails}&location=${eventLocation}&dates=${startStr}/${endStr}&add=ekanshrajput1607@gmail.com,${encodeURIComponent(email)}`
+    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${eventTitle}&details=${eventDetails}&location=${eventLocation}&dates=${startStr}/${endStr}&add=${encodeURIComponent(config.demoBookingEmail)},${encodeURIComponent(email)}`
     
     // Open Google Calendar in new tab
     window.open(calendarUrl, '_blank')
@@ -615,11 +616,11 @@ export default function LandingPage() {
             <div className="mt-12 flex flex-col md:flex-row justify-center items-center gap-6 text-gray-600">
               <div className="flex items-center gap-2">
                 <Mail className="w-5 h-5 text-primary-600" />
-                <span>N/A</span>
+                <span>{config.contactEmail}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="w-5 h-5 text-primary-600" />
-                <span>N/A</span>
+                <span>{config.contactPhone}</span>
               </div>
             </div>
           </motion.div>
@@ -672,15 +673,15 @@ export default function LandingPage() {
               <ul className="space-y-2 text-sm">
                 <li className="flex items-center gap-2">
                   <Mail className="w-4 h-4 text-primary-400" />
-                  <span>N/A</span>
+                  <span>{config.contactEmail}</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Phone className="w-4 h-4 text-primary-400" />
-                  <span>N/A</span>
+                  <span>{config.contactPhone}</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-primary-400" />
-                  <span>N/A</span>
+                  <span>{config.companyAddress}</span>
                 </li>
               </ul>
             </div>

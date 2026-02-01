@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import config from '../../config'
 import {
   HelpCircle, Book, MessageCircle, Mail, Phone, ChevronDown,
   ChevronRight, Search, ExternalLink, FileText, Video, Users,
@@ -333,12 +334,12 @@ export default function Help() {
             <div className="bg-white/10 rounded-lg p-4">
               <Mail className="w-6 h-6 mx-auto mb-2" />
               <h3 className="font-semibold">Email Support</h3>
-              <p className="text-sm text-primary-100 mt-1">support@meridian-ems.com</p>
+              <p className="text-sm text-primary-100 mt-1">{config.supportEmail}</p>
             </div>
             <div className="bg-white/10 rounded-lg p-4">
               <Phone className="w-6 h-6 mx-auto mb-2" />
               <h3 className="font-semibold">Phone Support</h3>
-              <p className="text-sm text-primary-100 mt-1">+91 80 1234 5678</p>
+              <p className="text-sm text-primary-100 mt-1">{config.supportPhone}</p>
             </div>
             <div className="bg-white/10 rounded-lg p-4">
               <MessageCircle className="w-6 h-6 mx-auto mb-2" />
