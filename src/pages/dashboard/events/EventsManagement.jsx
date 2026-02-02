@@ -4,11 +4,12 @@ import { motion } from 'framer-motion'
 import { toast } from 'react-toastify'
 import {
   Calendar, Plus, Search, Edit2, Trash2, X, ChevronLeft, ChevronRight,
-  Users, MapPin, Clock, Tag, Eye
+  Users, MapPin, Clock, Tag, Eye, Download
 } from 'lucide-react'
 import { eventsApi } from '../../../services/api'
 import DataTable from '../../../components/ui/DataTable'
 import Pagination from '../../../components/ui/Pagination'
+import { generateCSV, downloadCSV, CSV_TEMPLATES } from '../../../utils/csvUtils'
 
 const EVENT_TYPES = [
   { value: 'academic', label: 'Academic', color: 'bg-blue-100 text-blue-700' },
@@ -99,6 +100,37 @@ export default function EventsManagement() {
     } catch (err) { toast.error(err.message) }
   }
 
+  // Export handler
+  const [exporting, setExporting] = useState(false)
+  const handleExport = () => {
+    if (events.length === 0) {
+      toast.warning('No events to export')
+      return
+    }
+    setExporting(true)
+    try {
+      const exportData = events.map(e => ({
+        title: e.title || '',
+        type: e.type || '',
+        startDate: e.startDate ? new Date(e.startDate).toISOString().split('T')[0] : '',
+        endDate: e.endDate ? new Date(e.endDate).toISOString().split('T')[0] : '',
+        location: e.location || '',
+        description: e.description || '',
+        organizer: e.organizer?.name || e.organizer || '',
+        attendees: e.attendees?.length || 0,
+        status: e.status || 'scheduled'
+      }))
+      const headers = CSV_TEMPLATES.events.headers
+      const csvContent = generateCSV(exportData, headers)
+      downloadCSV(csvContent, `events_${new Date().toISOString().split('T')[0]}`)
+      toast.success('Events exported successfully')
+    } catch (err) {
+      toast.error('Export failed')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const getTypeColor = (type) => EVENT_TYPES.find(t => t.value === type)?.color || 'bg-gray-100 text-gray-700'
 
   const formatDate = (date) => new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -110,9 +142,19 @@ export default function EventsManagement() {
           <h1 className="text-2xl font-bold text-gray-900">Events Management</h1>
           <p className="text-gray-500">Manage school events and calendar</p>
         </div>
-        <button onClick={() => { setEditingEvent(null); setShowModal(true) }} className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
-          <Plus className="w-4 h-4" />Add Event
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleExport}
+            disabled={exporting || events.length === 0}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          >
+            {exporting ? <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
+            Export
+          </button>
+          <button onClick={() => { setEditingEvent(null); setShowModal(true) }} className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+            <Plus className="w-4 h-4" />Add Event
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

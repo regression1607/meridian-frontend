@@ -1,12 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import {
   FileText, Plus, Search, Filter, Download, Upload, CheckCircle,
-  Edit2, Trash2, Eye, X, Award, TrendingUp, Users, AlertCircle, ChevronDown
+  Edit2, Trash2, Eye, X, Award, TrendingUp, Users, AlertCircle, ChevronDown, FileDown
 } from 'lucide-react'
 import { examinationsApi, classesApi, subjectsApi } from '../../../services/api'
 import { toast } from 'react-toastify'
+import {
+  parseCSV, downloadCSVTemplate, readCSVFile, generateCSV, downloadCSV, CSV_TEMPLATES
+} from '../../../utils/csvUtils'
 
 const gradeColors = {
   'A+': 'bg-green-100 text-green-700',
@@ -35,6 +38,7 @@ export default function Results() {
   const [filters, setFilters] = useState({ exam: '', class: '', subject: '', status: '' })
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 })
   const [selectedResults, setSelectedResults] = useState([])
+  const [exporting, setExporting] = useState(false)
 
   const getStudentDisplayName = (student) => {
     if (!student) return 'Unknown'
@@ -144,6 +148,35 @@ export default function Results() {
     }
   }
 
+  // Export handler
+  const handleExport = async () => {
+    if (results.length === 0) {
+      toast.warning('No results to export')
+      return
+    }
+    setExporting(true)
+    try {
+      const exportData = results.map(r => ({
+        rollNumber: r.student?.admissionNumber || r.student?.rollNumber || '',
+        studentName: getStudentDisplayName(r.student),
+        examName: r.exam?.name || '',
+        subjectName: r.subject?.name || '',
+        marksObtained: r.marksObtained || 0,
+        maxMarks: r.totalMarks || 100,
+        grade: r.grade || '',
+        remarks: r.remarks || ''
+      }))
+      const headers = CSV_TEMPLATES.examResults.headers
+      const csvContent = generateCSV(exportData, headers)
+      downloadCSV(csvContent, `exam_results_${new Date().toISOString().split('T')[0]}`)
+      toast.success('Results exported successfully')
+    } catch (err) {
+      toast.error('Export failed')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   // Calculate stats from current results
   const stats = {
     total: results.length,
@@ -164,17 +197,25 @@ export default function Results() {
         </div>
         <div className="flex gap-2">
           <button
+            onClick={handleExport}
+            disabled={exporting || results.length === 0}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          >
+            {exporting ? <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
+            Export
+          </button>
+          <button
             onClick={() => setShowBulkModal(true)}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
           >
-            <Upload className="w-5 h-5" />
+            <Upload className="w-4 h-4" />
             Bulk Entry
           </button>
           <button
             onClick={() => { setEditingResult(null); setShowModal(true) }}
             className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4" />
             Add Result
           </button>
         </div>

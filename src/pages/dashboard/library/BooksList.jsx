@@ -4,12 +4,13 @@ import { motion } from 'framer-motion'
 import { toast } from 'react-toastify'
 import {
   BookOpen, Plus, Search, Filter, Edit2, Trash2, Eye,
-  BookMarked, Users, AlertTriangle, X, Tag
+  BookMarked, Users, AlertTriangle, X, Tag, Download, Upload
 } from 'lucide-react'
 import { libraryApi, subjectsApi } from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
 import DataTable from '../../../components/ui/DataTable'
 import Pagination from '../../../components/ui/Pagination'
+import { generateCSV, downloadCSV, CSV_TEMPLATES } from '../../../utils/csvUtils'
 
 const CATEGORIES = [
   { value: 'textbook', label: 'Textbook' },
@@ -124,6 +125,38 @@ export default function BooksList() {
     }
   }
 
+  // Export handler
+  const [exporting, setExporting] = useState(false)
+  const handleExport = () => {
+    if (books.length === 0) {
+      toast.warning('No books to export')
+      return
+    }
+    setExporting(true)
+    try {
+      const exportData = books.map(b => ({
+        title: b.title || '',
+        author: b.author || '',
+        isbn: b.isbn || '',
+        category: b.category || '',
+        publisher: b.publisher || '',
+        publicationYear: b.publicationYear || '',
+        copies: b.totalCopies || 0,
+        availableCopies: b.availableCopies || 0,
+        location: b.shelfLocation || '',
+        price: b.price || ''
+      }))
+      const headers = CSV_TEMPLATES.books.headers
+      const csvContent = generateCSV(exportData, headers)
+      downloadCSV(csvContent, `library_books_${new Date().toISOString().split('T')[0]}`)
+      toast.success('Books exported successfully')
+    } catch (err) {
+      toast.error('Export failed')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   if (loading && !books.length) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -140,13 +173,23 @@ export default function BooksList() {
           <h1 className="text-2xl font-bold text-gray-900">Library - Books</h1>
           <p className="text-gray-500">Manage your library book collection</p>
         </div>
-        <button
-          onClick={() => { setEditingBook(null); setShowModal(true) }}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-        >
-          <Plus className="w-4 h-4" />
-          Add Book
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleExport}
+            disabled={exporting || books.length === 0}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          >
+            {exporting ? <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
+            Export
+          </button>
+          <button
+            onClick={() => { setEditingBook(null); setShowModal(true) }}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+          >
+            <Plus className="w-4 h-4" />
+            Add Book
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}

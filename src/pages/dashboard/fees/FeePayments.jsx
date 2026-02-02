@@ -7,11 +7,12 @@ import {
   CreditCard, DollarSign, AlertCircle, CheckCircle, 
   Search, Filter, Download, Plus, Receipt, X, User,
   ChevronLeft, ChevronRight, Settings, Users, Eye, FileText,
-  Calendar, Hash, Banknote, Percent
+  Calendar, Hash, Banknote, Percent, Upload
 } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { TableSkeleton } from '../../../components/ui/Loading'
 import { feesApi, usersApi, classesApi } from '../../../services/api'
+import { generateCSV, downloadCSV, CSV_TEMPLATES } from '../../../utils/csvUtils'
 
 const STATUS_COLORS = {
   paid: 'bg-green-100 text-green-700',
@@ -48,6 +49,7 @@ export default function FeePayments() {
   const [selectedPayment, setSelectedPayment] = useState(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [downloadingInvoice, setDownloadingInvoice] = useState(null)
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     fetchFeeStats()
@@ -177,6 +179,38 @@ export default function FeePayments() {
       currency: 'INR',
       maximumFractionDigits: 0
     }).format(amount)
+  }
+
+  // Export handler
+  const handleExport = () => {
+    if (payments.length === 0) {
+      toast.warning('No payments to export')
+      return
+    }
+    setExporting(true)
+    try {
+      const exportData = payments.map(p => ({
+        studentName: p.student?.profile ? `${p.student.profile.firstName} ${p.student.profile.lastName}` : '',
+        rollNumber: p.student?.studentData?.admissionNumber || '',
+        email: p.student?.email || '',
+        feeType: p.feeStructure?.name || 'Fee Payment',
+        amount: p.amount || 0,
+        dueDate: p.dueDate ? new Date(p.dueDate).toISOString().split('T')[0] : '',
+        paidAmount: p.paidAmount || p.amount || 0,
+        paymentDate: p.paidDate ? new Date(p.paidDate).toISOString().split('T')[0] : '',
+        paymentMethod: p.paymentMethod || '',
+        transactionId: p.transactionId || '',
+        status: p.status || ''
+      }))
+      const headers = CSV_TEMPLATES.fees.headers
+      const csvContent = generateCSV(exportData, headers)
+      downloadCSV(csvContent, `fee_payments_${new Date().toISOString().split('T')[0]}`)
+      toast.success('Payments exported successfully')
+    } catch (err) {
+      toast.error('Export failed')
+    } finally {
+      setExporting(false)
+    }
   }
 
   const viewPaymentDetails = (payment) => {
@@ -364,6 +398,14 @@ export default function FeePayments() {
               <Plus className="w-4 h-4" /> Record Payment
             </button>
           )}
+          <button
+            onClick={handleExport}
+            disabled={exporting || payments.length === 0}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm flex items-center gap-2 disabled:opacity-50"
+          >
+            {exporting ? <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
+            Export
+          </button>
         </div>
       </div>
 

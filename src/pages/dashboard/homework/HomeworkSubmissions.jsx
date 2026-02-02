@@ -5,11 +5,12 @@ import { toast } from 'react-toastify'
 import {
   BookOpen, Search, Filter, Calendar, Clock,
   CheckCircle, AlertCircle, Eye, Award, User,
-  ChevronLeft, ChevronRight, FileText, XCircle
+  ChevronLeft, ChevronRight, FileText, XCircle, Download
 } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { TableSkeleton } from '../../../components/ui/Loading'
 import { homeworkApi, classesApi, subjectsApi, institutionsApi } from '../../../services/api'
+import { generateCSV, downloadCSV, CSV_TEMPLATES } from '../../../utils/csvUtils'
 
 const STATUS_CONFIG = {
   submitted: { label: 'Submitted', color: 'bg-blue-100 text-blue-700', icon: CheckCircle },
@@ -170,12 +171,53 @@ export default function HomeworkSubmissions() {
     late: allSubmissions.filter(s => s.status === 'late').length
   }
 
+  // Export handler
+  const [exporting, setExporting] = useState(false)
+  const handleExport = () => {
+    if (allSubmissions.length === 0) {
+      toast.warning('No submissions to export')
+      return
+    }
+    setExporting(true)
+    try {
+      const exportData = allSubmissions.map(sub => ({
+        studentName: `${sub.student?.profile?.firstName || ''} ${sub.student?.profile?.lastName || ''}`.trim(),
+        rollNumber: sub.student?.studentData?.rollNumber || sub.student?.studentData?.admissionNumber || '',
+        homeworkTitle: sub.homework?.title || '',
+        subject: sub.homework?.subject?.name || '',
+        submittedAt: sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : '',
+        status: sub.status || '',
+        score: sub.score || '',
+        maxScore: sub.homework?.maxScore || '',
+        feedback: sub.feedback || ''
+      }))
+      const headers = CSV_TEMPLATES.homework.headers
+      const csvContent = generateCSV(exportData, headers)
+      downloadCSV(csvContent, `homework_submissions_${new Date().toISOString().split('T')[0]}`)
+      toast.success('Submissions exported successfully')
+    } catch (err) {
+      toast.error('Export failed')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Homework Submissions</h1>
-        <p className="text-gray-500 mt-1">View and grade all student submissions</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Homework Submissions</h1>
+          <p className="text-gray-500 mt-1">View and grade all student submissions</p>
+        </div>
+        <button
+          onClick={handleExport}
+          disabled={exporting || allSubmissions.length === 0}
+          className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+        >
+          {exporting ? <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
+          Export
+        </button>
       </div>
 
       {/* Stats Cards */}

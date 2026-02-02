@@ -124,7 +124,9 @@ export const usersApi = {
   create: (userData) => api.post('/users', userData),
   update: (id, userData) => api.put(`/users/${id}`, userData),
   delete: (id) => api.delete(`/users/${id}`),
-  getByRole: (role, params) => api.get(`/users/role/${role}`, params)
+  getByRole: (role, params) => api.get(`/users/role/${role}`, params),
+  bulkImport: (data) => api.post('/users/bulk-import', data),
+  export: (params) => api.get('/users/export', params)
 }
 
 // Students endpoints

@@ -1,14 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import { 
   Calendar, Users, Check, X, Clock, UserCheck, 
   ChevronLeft, ChevronRight, Download, Filter, Search,
-  CheckCircle, XCircle, AlertCircle, Save
+  CheckCircle, XCircle, AlertCircle, Save, Upload, FileText, FileDown
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { TableSkeleton } from '../../components/ui/Loading'
 import { attendanceApi, institutionsApi, classesApi } from '../../services/api'
 import { toast } from 'react-toastify'
+import {
+  parseCSV, validateCSVFormat, downloadCSVTemplate, readCSVFile,
+  generateCSV, downloadCSV, CSV_TEMPLATES
+} from '../../utils/csvUtils'
 
 const STATUS_CONFIG = {
   present: { label: 'Present', color: 'bg-green-100 text-green-700', icon: CheckCircle, iconColor: 'text-green-600' },
@@ -32,6 +37,16 @@ export default function Attendance() {
   const [selectedSection, setSelectedSection] = useState('')
   const [attendanceData, setAttendanceData] = useState({})
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // Import/Export state
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [importFile, setImportFile] = useState(null)
+  const [importPreview, setImportPreview] = useState(null)
+  const [importErrors, setImportErrors] = useState([])
+  const [importing, setImporting] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const fileInputRef = useRef(null)
 
   // For platform admins, fetch first institution
   useEffect(() => {
@@ -173,6 +188,114 @@ export default function Attendance() {
 
   const selectedClassData = classes.find(c => c._id === selectedClass)
 
+  // Import handlers
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImportFile(file)
+    setImportErrors([])
+    setImportPreview(null)
+    try {
+      const csvContent = await readCSVFile(file)
+      const { headers, data, errors: parseErrors } = parseCSV(csvContent)
+      if (parseErrors.length > 0) {
+        setImportErrors(parseErrors)
+        return
+      }
+      // Basic validation for attendance CSV
+      const requiredHeaders = ['rollnumber', 'status']
+      const missingHeaders = requiredHeaders.filter(h => !headers.includes(h))
+      if (missingHeaders.length > 0) {
+        setImportErrors([`Missing required columns: ${missingHeaders.join(', ')}`])
+        return
+      }
+      // Validate status values
+      const validStatuses = ['present', 'absent', 'late', 'half_day', 'leave']
+      const invalidRows = data.filter(row => !validStatuses.includes(row.status?.toLowerCase()))
+      if (invalidRows.length > 0) {
+        setImportErrors([`Invalid status values found. Use: ${validStatuses.join(', ')}`])
+        return
+      }
+      setImportPreview({ headers, data, count: data.length })
+    } catch (err) {
+      setImportErrors([err.message])
+    }
+  }
+
+  const handleImport = async () => {
+    if (!importPreview || importErrors.length > 0) return
+    setImporting(true)
+    try {
+      // Map CSV data to attendance records
+      const attendanceRecords = importPreview.data.map(row => {
+        const student = students.find(s => s.rollNumber === row.rollnumber)
+        return {
+          userId: student?._id,
+          rollNumber: row.rollnumber,
+          status: row.status?.toLowerCase()
+        }
+      }).filter(r => r.userId)
+
+      if (attendanceRecords.length === 0) {
+        toast.error('No matching students found for the roll numbers')
+        setImporting(false)
+        return
+      }
+
+      await attendanceApi.markBulk({
+        date: selectedDate,
+        institution: institutionId,
+        classId: selectedClass,
+        sectionId: selectedSection || undefined,
+        attendanceData: attendanceRecords
+      })
+      toast.success(`Imported attendance for ${attendanceRecords.length} students`)
+      setShowImportModal(false)
+      resetImportModal()
+      fetchClassAttendance()
+    } catch (err) {
+      toast.error(err.message || 'Import failed')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const resetImportModal = () => {
+    setImportFile(null)
+    setImportPreview(null)
+    setImportErrors([])
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  // Export handler
+  const handleExport = async () => {
+    if (students.length === 0) {
+      toast.warning('No students to export')
+      return
+    }
+    setExporting(true)
+    try {
+      const exportData = students.map(student => ({
+        rollNumber: student.rollNumber || '',
+        studentName: student.name || '',
+        email: student.email || '',
+        status: attendanceData[student._id] || 'unmarked',
+        date: selectedDate,
+        remarks: ''
+      }))
+      const headers = CSV_TEMPLATES.attendance.headers
+      const csvContent = generateCSV(exportData, headers)
+      const className = selectedClassData?.name || 'class'
+      downloadCSV(csvContent, `attendance_${className}_${selectedDate}`)
+      toast.success('Attendance exported successfully')
+      setShowExportModal(false)
+    } catch (err) {
+      toast.error('Export failed')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   // Filter students by search query
   const filteredStudents = students.filter(student => {
     if (!searchQuery) return true
@@ -190,7 +313,18 @@ export default function Attendance() {
           <p className="text-gray-500 mt-1">Mark and manage daily student attendance</p>
         </div>
         <div className="flex gap-2">
-          <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm flex items-center gap-2">
+          <button 
+            onClick={() => setShowImportModal(true)}
+            disabled={!selectedClass}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm flex items-center gap-2 disabled:opacity-50"
+          >
+            <Upload className="w-4 h-4" /> Import
+          </button>
+          <button 
+            onClick={() => setShowExportModal(true)}
+            disabled={students.length === 0}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm flex items-center gap-2 disabled:opacity-50"
+          >
             <Download className="w-4 h-4" /> Export
           </button>
           <button
@@ -511,6 +645,80 @@ export default function Attendance() {
           </div>
         )}
       </motion.div>
+
+      {/* Import Modal */}
+      {showImportModal && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4" style={{ margin: 0 }}>
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-xl w-full max-w-lg">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Import Attendance</h2>
+                <p className="text-sm text-gray-500 mt-1">Upload CSV to mark attendance in bulk</p>
+              </div>
+              <button onClick={() => { setShowImportModal(false); resetImportModal(); }} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <button onClick={() => downloadCSVTemplate('attendance')} className="px-4 py-2 border border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50 text-sm flex items-center gap-2">
+                  <FileDown className="w-4 h-4" /> Download Template
+                </button>
+                <p className="text-xs text-gray-500 mt-2">Required: rollNumber, status (present/absent/late/half_day/leave), date</p>
+              </div>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileSelect} className="hidden" id="attendance-csv" />
+                <label htmlFor="attendance-csv" className="cursor-pointer">
+                  <FileText className="w-10 h-10 mx-auto text-gray-400 mb-2" />
+                  <p className="text-sm text-gray-600">{importFile ? importFile.name : 'Click to select CSV file'}</p>
+                </label>
+              </div>
+              {importErrors.length > 0 && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm font-medium text-red-700 flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Error</p>
+                  <ul className="text-xs text-red-600 mt-1">{importErrors.map((e, i) => <li key={i}>• {e}</li>)}</ul>
+                </div>
+              )}
+              {importPreview && importErrors.length === 0 && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm font-medium text-green-700 flex items-center gap-2"><CheckCircle className="w-4 h-4" /> Ready to import {importPreview.count} records</p>
+                </div>
+              )}
+            </div>
+            <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => { setShowImportModal(false); resetImportModal(); }} className="px-4 py-2 border border-gray-300 rounded-lg">Cancel</button>
+              <button onClick={handleImport} disabled={!importPreview || importErrors.length > 0 || importing} className="px-4 py-2 bg-primary-600 text-white rounded-lg disabled:opacity-50 flex items-center gap-2">
+                {importing ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Importing...</> : <><Upload className="w-4 h-4" /> Import</>}
+              </button>
+            </div>
+          </motion.div>
+        </div>,
+        document.body
+      )}
+
+      {/* Export Modal */}
+      {showExportModal && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4" style={{ margin: 0 }}>
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-xl w-full max-w-md">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Export Attendance</h2>
+                <p className="text-sm text-gray-500 mt-1">Download attendance data as CSV</p>
+              </div>
+              <button onClick={() => setShowExportModal(false)} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-600">Export attendance for <strong>{selectedClassData?.name || 'selected class'}</strong> on <strong>{selectedDate}</strong></p>
+              <p className="text-sm text-gray-500 mt-2">{students.length} students will be exported</p>
+            </div>
+            <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => setShowExportModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg">Cancel</button>
+              <button onClick={handleExport} disabled={exporting} className="px-4 py-2 bg-primary-600 text-white rounded-lg disabled:opacity-50 flex items-center gap-2">
+                {exporting ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Exporting...</> : <><Download className="w-4 h-4" /> Export CSV</>}
+              </button>
+            </div>
+          </motion.div>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

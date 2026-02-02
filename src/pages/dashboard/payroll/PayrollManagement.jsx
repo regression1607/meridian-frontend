@@ -9,6 +9,7 @@ import { payrollApi, usersApi } from '../../../services/api'
 import DataTable from '../../../components/ui/DataTable'
 import Pagination from '../../../components/ui/Pagination'
 import { UserSearchSelect } from '../../../components/ui/SearchableSelect'
+import { generateCSV, downloadCSV, CSV_TEMPLATES } from '../../../utils/csvUtils'
 
 const TABS = [
   { id: 'structures', label: 'Salary Structures', icon: TrendingUp },
@@ -159,6 +160,58 @@ export default function PayrollManagement() {
 
   const formatCurrency = (amt) => `₹${(amt || 0).toLocaleString()}`
 
+  // Export handler
+  const [exporting, setExporting] = useState(false)
+  const handleExport = () => {
+    if (data.length === 0) {
+      toast.warning('No data to export')
+      return
+    }
+    setExporting(true)
+    try {
+      let exportData = []
+      if (activeTab === 'salaries' || activeTab === 'payslips') {
+        exportData = data.map(item => ({
+          employeeId: item.employee?.employeeId || item.employee?.staffData?.employeeId || '',
+          employeeName: item.employee?.profile ? `${item.employee.profile.firstName} ${item.employee.profile.lastName}` : '',
+          email: item.employee?.email || '',
+          department: item.employee?.staffData?.department || item.structure?.department || '',
+          designation: item.employee?.staffData?.designation || '',
+          basicSalary: item.structure?.basicSalary || item.basicSalary || 0,
+          allowances: item.structure?.totalAllowances || item.totalAllowances || 0,
+          deductions: item.structure?.totalDeductions || item.totalDeductions || 0,
+          netSalary: item.netSalary || item.structure?.netSalary || 0,
+          month: item.month || selectedMonth,
+          year: item.year || selectedYear,
+          status: item.status || ''
+        }))
+      } else {
+        exportData = data.map(item => ({
+          employeeId: item.employee?.employeeId || '',
+          employeeName: item.employee?.profile ? `${item.employee.profile.firstName} ${item.employee.profile.lastName}` : item.name || '',
+          email: item.employee?.email || '',
+          department: item.department || '',
+          designation: '',
+          basicSalary: item.basicSalary || item.amount || 0,
+          allowances: item.totalAllowances || 0,
+          deductions: item.totalDeductions || 0,
+          netSalary: item.netSalary || item.amount || 0,
+          month: selectedMonth,
+          year: selectedYear,
+          status: item.status || ''
+        }))
+      }
+      const headers = CSV_TEMPLATES.payroll.headers
+      const csvContent = generateCSV(exportData, headers)
+      downloadCSV(csvContent, `payroll_${activeTab}_${new Date().toISOString().split('T')[0]}`)
+      toast.success('Data exported successfully')
+    } catch (err) {
+      toast.error('Export failed')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -166,13 +219,23 @@ export default function PayrollManagement() {
           <h1 className="text-2xl font-bold text-gray-900">Payroll Management</h1>
           <p className="text-gray-500">Manage salaries, payslips, bonuses and advances</p>
         </div>
-        <button
-          onClick={() => { setEditingItem(null); setShowModal(true) }}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-        >
-          <Plus className="w-4 h-4" />
-          {activeTab === 'structures' ? 'Add Structure' : activeTab === 'salaries' ? 'Assign Salary' : activeTab === 'payslips' ? 'Generate Payslip' : activeTab === 'bonuses' ? 'Add Bonus' : 'New Request'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleExport}
+            disabled={exporting || data.length === 0}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          >
+            {exporting ? <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
+            Export
+          </button>
+          <button
+            onClick={() => { setEditingItem(null); setShowModal(true) }}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+          >
+            <Plus className="w-4 h-4" />
+            {activeTab === 'structures' ? 'Add Structure' : activeTab === 'salaries' ? 'Assign Salary' : activeTab === 'payslips' ? 'Generate Payslip' : activeTab === 'bonuses' ? 'Add Bonus' : 'New Request'}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
