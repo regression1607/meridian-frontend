@@ -430,8 +430,8 @@ function BookModal({ isOpen, onClose, onSave, book, subjects }) {
 
   if (!isOpen) return null
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+  return createPortal(
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4" style={{ margin: 0 }}>
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -653,7 +653,8 @@ function BookModal({ isOpen, onClose, onSave, book, subjects }) {
           </div>
         </form>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
