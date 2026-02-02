@@ -139,14 +139,9 @@ const usersSlice = createSlice({
         if (action.payload.meta) {
           state.pagination = { ...state.pagination, ...action.payload.meta }
         }
-        // Calculate stats
-        const allUsers = action.payload.data || []
-        state.stats = {
-          total: action.payload.meta?.total || allUsers.length,
-          students: allUsers.filter(u => u.role === 'student').length,
-          teachers: allUsers.filter(u => u.role === 'teacher').length,
-          parents: allUsers.filter(u => u.role === 'parent').length,
-          staff: allUsers.filter(u => u.role === 'staff').length
+        // Use stats from API response (actual database counts)
+        if (action.payload.stats) {
+          state.stats = action.payload.stats
         }
       })
       .addCase(fetchUsers.rejected, (state, action) => {
