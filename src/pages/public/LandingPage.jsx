@@ -197,6 +197,7 @@ export default function LandingPage() {
             {/* Desktop Nav */}
             <div className="hidden md:flex items-center gap-6">
               <a href="#features" className="text-gray-600 hover:text-primary-600 transition">Features</a>
+              <a href="#pricing" className="text-gray-600 hover:text-primary-600 transition">Pricing</a>
               <a href="#institutions" className="text-gray-600 hover:text-primary-600 transition">Institutions</a>
               <a href="#contact" className="text-gray-600 hover:text-primary-600 transition">Contact</a>
               <Link to="/login" className="text-gray-600 hover:text-primary-600 transition font-medium">
@@ -226,6 +227,7 @@ export default function LandingPage() {
           >
             <div className="flex flex-col gap-4">
               <a href="#features" className="text-gray-600 hover:text-primary-600 transition py-2">Features</a>
+              <a href="#pricing" className="text-gray-600 hover:text-primary-600 transition py-2">Pricing</a>
               <a href="#institutions" className="text-gray-600 hover:text-primary-600 transition py-2">Institutions</a>
               <a href="#contact" className="text-gray-600 hover:text-primary-600 transition py-2">Contact</a>
               <Link to="/login" className="text-gray-600 hover:text-primary-600 transition py-2 font-medium">
@@ -573,6 +575,263 @@ export default function LandingPage() {
                   Live & Available Now
                 </div>
               </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="py-16 md:py-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="text-3xl md:text-4xl font-bold text-gray-900 mb-4"
+            >
+              Choose Your Plan
+            </motion.h2>
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="text-lg text-gray-600 max-w-2xl mx-auto"
+            >
+              Flexible pricing for institutions of all sizes
+            </motion.p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Free Plan */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-shadow"
+            >
+              <div className="text-center mb-6">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Free</h3>
+                <div className="text-3xl font-bold text-gray-900">₹0</div>
+                <p className="text-gray-500 text-sm mt-1">Forever free</p>
+              </div>
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  Up to 100 students
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  Up to 20 staff
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  Basic features
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  Email support
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-400">
+                  <X className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                  No AI features
+                </li>
+              </ul>
+              <button 
+                onClick={() => {
+                  const eventTitle = encodeURIComponent('Meridian EMS - Free Plan Inquiry')
+                  const eventDetails = encodeURIComponent('Inquiry about Meridian EMS Free Plan features and getting started.')
+                  const startDate = new Date()
+                  startDate.setDate(startDate.getDate() + 7)
+                  startDate.setHours(10, 0, 0, 0)
+                  const endDate = new Date(startDate)
+                  endDate.setHours(11, 0, 0, 0)
+                  const formatDate = (date) => date.toISOString().replace(/-|:|\.\d{3}/g, '')
+                  window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${eventTitle}&details=${eventDetails}&dates=${formatDate(startDate)}/${formatDate(endDate)}&add=${encodeURIComponent(config.demoBookingEmail)}`, '_blank')
+                }}
+                className="w-full py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+              >
+                Get Started
+              </button>
+            </motion.div>
+
+            {/* Basic Plan */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-shadow"
+            >
+              <div className="text-center mb-6">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Basic</h3>
+                <div className="text-3xl font-bold text-gray-900">₹4,999<span className="text-base font-normal text-gray-500">/mo</span></div>
+                <p className="text-gray-500 text-sm mt-1">For growing schools</p>
+              </div>
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  Up to 500 students
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  Up to 50 staff
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  All basic features
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  SMS notifications
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  Priority support
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <Sparkles className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                  AI: 10 requests/day
+                </li>
+              </ul>
+              <button 
+                onClick={() => {
+                  const eventTitle = encodeURIComponent('Meridian EMS - Basic Plan Demo')
+                  const eventDetails = encodeURIComponent('Demo request for Meridian EMS Basic Plan (₹4,999/mo)\n\nFeatures: 500 students, 50 staff, SMS notifications, AI 10 requests/day')
+                  const startDate = new Date()
+                  startDate.setDate(startDate.getDate() + 7)
+                  startDate.setHours(10, 0, 0, 0)
+                  const endDate = new Date(startDate)
+                  endDate.setHours(11, 0, 0, 0)
+                  const formatDate = (date) => date.toISOString().replace(/-|:|\.\d{3}/g, '')
+                  window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${eventTitle}&details=${eventDetails}&dates=${formatDate(startDate)}/${formatDate(endDate)}&add=${encodeURIComponent(config.demoBookingEmail)}`, '_blank')
+                }}
+                className="w-full py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium"
+              >
+                Upgrade
+              </button>
+            </motion.div>
+
+            {/* Premium Plan - Highlighted */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="bg-gradient-to-br from-primary-600 to-indigo-700 rounded-2xl p-6 text-white relative hover:shadow-xl transition-shadow"
+            >
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span className="px-3 py-1 bg-amber-400 text-amber-900 text-xs font-bold rounded-full">POPULAR</span>
+              </div>
+              <div className="text-center mb-6">
+                <h3 className="text-xl font-bold mb-2">Premium</h3>
+                <div className="text-3xl font-bold">₹9,999<span className="text-base font-normal text-primary-200">/mo</span></div>
+                <p className="text-primary-200 text-sm mt-1">For large institutions</p>
+              </div>
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-green-300 flex-shrink-0" />
+                  Up to 2000 students
+                </li>
+                <li className="flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-green-300 flex-shrink-0" />
+                  Up to 200 staff
+                </li>
+                <li className="flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-green-300 flex-shrink-0" />
+                  All premium features
+                </li>
+                <li className="flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-green-300 flex-shrink-0" />
+                  Online payments
+                </li>
+                <li className="flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-green-300 flex-shrink-0" />
+                  24/7 support
+                </li>
+                <li className="flex items-center gap-2 text-sm">
+                  <Sparkles className="w-4 h-4 text-amber-300 flex-shrink-0" />
+                  AI: 20 requests/day
+                </li>
+              </ul>
+              <button 
+                onClick={() => {
+                  const eventTitle = encodeURIComponent('Meridian EMS - Premium Plan Demo')
+                  const eventDetails = encodeURIComponent('Demo request for Meridian EMS Premium Plan (₹9,999/mo)\n\nFeatures: 2000 students, 200 staff, Online payments, 24/7 support, AI 20 requests/day')
+                  const startDate = new Date()
+                  startDate.setDate(startDate.getDate() + 7)
+                  startDate.setHours(10, 0, 0, 0)
+                  const endDate = new Date(startDate)
+                  endDate.setHours(11, 0, 0, 0)
+                  const formatDate = (date) => date.toISOString().replace(/-|:|\.\d{3}/g, '')
+                  window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${eventTitle}&details=${eventDetails}&dates=${formatDate(startDate)}/${formatDate(endDate)}&add=${encodeURIComponent(config.demoBookingEmail)}`, '_blank')
+                }}
+                className="w-full py-2.5 bg-white text-primary-700 rounded-lg hover:bg-gray-100 transition font-medium"
+              >
+                Upgrade
+              </button>
+            </motion.div>
+
+            {/* Enterprise Plan */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+              className="bg-gray-900 rounded-2xl p-6 text-white hover:shadow-lg transition-shadow"
+            >
+              <div className="text-center mb-6">
+                <h3 className="text-xl font-bold mb-2">Enterprise</h3>
+                <div className="text-3xl font-bold">Custom</div>
+                <p className="text-gray-400 text-sm mt-1">Tailored for you</p>
+              </div>
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-center gap-2 text-sm text-gray-300">
+                  <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                  Unlimited students
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-300">
+                  <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                  Unlimited staff
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-300">
+                  <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                  All features
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-300">
+                  <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                  Custom integrations
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-300">
+                  <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                  Dedicated support
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-300">
+                  <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                  White-labeling
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-300">
+                  <Sparkles className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  Custom AI requests
+                </li>
+              </ul>
+              <button 
+                onClick={() => {
+                  const eventTitle = encodeURIComponent('Meridian EMS - Enterprise Plan Consultation')
+                  const eventDetails = encodeURIComponent('Enterprise Plan consultation for Meridian EMS\n\nFeatures: Unlimited students & staff, Custom integrations, Dedicated support, White-labeling, Custom AI requests')
+                  const startDate = new Date()
+                  startDate.setDate(startDate.getDate() + 7)
+                  startDate.setHours(10, 0, 0, 0)
+                  const endDate = new Date(startDate)
+                  endDate.setHours(11, 0, 0, 0)
+                  const formatDate = (date) => date.toISOString().replace(/-|:|\.\d{3}/g, '')
+                  window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${eventTitle}&details=${eventDetails}&dates=${formatDate(startDate)}/${formatDate(endDate)}&add=${encodeURIComponent(config.demoBookingEmail)}`, '_blank')
+                }}
+                className="w-full py-2.5 border border-gray-600 text-white rounded-lg hover:bg-gray-800 transition font-medium"
+              >
+                Contact Sales
+              </button>
             </motion.div>
           </div>
         </div>
