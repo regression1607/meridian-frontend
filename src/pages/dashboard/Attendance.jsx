@@ -37,6 +37,8 @@ export default function Attendance() {
   const [selectedSection, setSelectedSection] = useState('')
   const [attendanceData, setAttendanceData] = useState({})
   const [searchQuery, setSearchQuery] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 8
   
   // Import/Export state
   const [showImportModal, setShowImportModal] = useState(false)
@@ -304,6 +306,18 @@ export default function Attendance() {
     return name.includes(searchQuery.toLowerCase()) || rollNo.includes(searchQuery.toLowerCase())
   })
 
+  // Pagination
+  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage)
+  const paginatedStudents = filteredStudents.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  )
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, selectedClass, selectedSection])
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -553,7 +567,7 @@ export default function Attendance() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filteredStudents.map((student, index) => {
+                {paginatedStudents.map((student, index) => {
                   const currentStatus = attendanceData[student._id] || 'unmarked'
                   const statusConfig = STATUS_CONFIG[currentStatus]
                   
@@ -622,14 +636,52 @@ export default function Attendance() {
           </div>
         )}
 
-        {/* Table Footer */}
+        {/* Table Footer with Pagination */}
         {filteredStudents.length > 0 && (
-          <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-            <p className="text-sm text-gray-600">
-              Showing <span className="font-medium">{filteredStudents.length}</span> of{' '}
-              <span className="font-medium">{students.length}</span> students
-            </p>
-            <div className="flex items-center gap-4">
+          <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+              <p className="text-sm text-gray-600">
+                Showing <span className="font-medium">{filteredStudents.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> to{' '}
+                <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredStudents.length)}</span> of{' '}
+                <span className="font-medium">{filteredStudents.length}</span> students
+              </p>
+              
+              {totalPages > 1 && (
+                <div className="flex gap-1">
+                  <button 
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage <= 1}
+                    className="px-3 py-1 border border-gray-200 rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                    .map((page, idx, arr) => (
+                      <span key={page} className="flex items-center">
+                        {idx > 0 && arr[idx - 1] !== page - 1 && <span className="px-2 text-gray-400">...</span>}
+                        <button
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-1 rounded text-sm ${
+                            currentPage === page 
+                              ? 'bg-primary-600 text-white' 
+                              : 'border border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      </span>
+                    ))}
+                  <button 
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage >= totalPages}
+                    className="px-3 py-1 border border-gray-200 rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+              
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-gray-500">Legend:</span>
                 {Object.entries(STATUS_CONFIG).filter(([key]) => key !== 'unmarked').map(([key, config]) => {

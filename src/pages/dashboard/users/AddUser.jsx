@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { toast } from 'react-toastify'
 import { 
   ArrowLeft, User, Mail, Phone, Calendar, MapPin, 
-  Save, X, Eye, EyeOff, Building, GraduationCap, Plus
+  Save, X, Eye, EyeOff, Building, GraduationCap, Plus, Users, Search
 } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { ButtonLoader } from '../../../components/ui/Loading'
@@ -32,6 +32,12 @@ export default function AddUser() {
   const [classes, setClasses] = useState([])
   const [loadingClasses, setLoadingClasses] = useState(false)
   const [selectedClassData, setSelectedClassData] = useState(null)
+  const [loadingAdmissionNumber, setLoadingAdmissionNumber] = useState(false)
+  const [loadingRollNumber, setLoadingRollNumber] = useState(false)
+  const [loadingEmployeeId, setLoadingEmployeeId] = useState(false)
+  const [students, setStudents] = useState([])
+  const [loadingStudents, setLoadingStudents] = useState(false)
+  const [studentSearch, setStudentSearch] = useState('')
   
   // Get institution ID from user or set null for platform admins to select
   const userInstitutionId = user?.institution?._id || user?.institution || null
@@ -77,6 +83,10 @@ export default function AddUser() {
       department: '',
       designation: ''
     },
+    parentProfile: {
+      relation: '',
+      children: []
+    },
     institutionId: ''
   })
 
@@ -106,6 +116,38 @@ export default function AddUser() {
       setSelectedClassData(null)
     }
   }, [formData.studentProfile.class, classes])
+
+  // Fetch next admission number when role is student and institution is selected
+  useEffect(() => {
+    const instId = isPlatformAdmin ? formData.institutionId : userInstitutionId
+    if (formData.role === 'student' && instId) {
+      fetchNextAdmissionNumber(instId)
+    }
+  }, [formData.role, formData.institutionId, isPlatformAdmin, userInstitutionId])
+
+  // Fetch next roll number when class and section are selected
+  useEffect(() => {
+    const instId = isPlatformAdmin ? formData.institutionId : userInstitutionId
+    if (formData.role === 'student' && formData.studentProfile.class && instId) {
+      fetchNextRollNumber(instId, formData.studentProfile.class, formData.studentProfile.section)
+    }
+  }, [formData.studentProfile.class, formData.studentProfile.section, formData.role, formData.institutionId, isPlatformAdmin, userInstitutionId])
+
+  // Fetch next employee ID when role is teacher or staff
+  useEffect(() => {
+    const instId = isPlatformAdmin ? formData.institutionId : userInstitutionId
+    if ((formData.role === 'teacher' || formData.role === 'staff') && instId) {
+      fetchNextEmployeeId(instId, formData.role)
+    }
+  }, [formData.role, formData.institutionId, isPlatformAdmin, userInstitutionId])
+
+  // Fetch students when role is parent
+  useEffect(() => {
+    const instId = isPlatformAdmin ? formData.institutionId : userInstitutionId
+    if (formData.role === 'parent' && instId) {
+      fetchStudents(instId)
+    }
+  }, [formData.role, formData.institutionId, isPlatformAdmin, userInstitutionId])
 
   const fetchInstitutions = async () => {
     try {
@@ -142,6 +184,137 @@ export default function AddUser() {
       setLoadingClasses(false)
     }
   }
+
+  const fetchNextAdmissionNumber = async (institutionId) => {
+    try {
+      setLoadingAdmissionNumber(true)
+      const token = localStorage.getItem('meridian_token')
+      const response = await fetch(`${API_BASE_URL}/users/id-generator/next?institutionId=${institutionId}&idType=admissionNumber`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await response.json()
+      const admissionNumber = data.data?.id || data.data?.admissionNumber
+      if (data.success && admissionNumber) {
+        setFormData(prev => ({
+          ...prev,
+          studentProfile: {
+            ...prev.studentProfile,
+            admissionNumber: admissionNumber
+          }
+        }))
+      }
+    } catch (error) {
+      console.error('Failed to fetch next admission number:', error)
+    } finally {
+      setLoadingAdmissionNumber(false)
+    }
+  }
+
+  const fetchNextRollNumber = async (institutionId, classId, sectionId) => {
+    try {
+      setLoadingRollNumber(true)
+      const token = localStorage.getItem('meridian_token')
+      let url = `${API_BASE_URL}/users/id-generator/next?institutionId=${institutionId}&idType=rollNumber&classId=${classId}`
+      if (sectionId) {
+        url += `&sectionId=${sectionId}`
+      }
+      const response = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await response.json()
+      const rollNumber = data.data?.id || data.data?.rollNumber
+      if (data.success && rollNumber) {
+        setFormData(prev => ({
+          ...prev,
+          studentProfile: {
+            ...prev.studentProfile,
+            rollNumber: rollNumber
+          }
+        }))
+      }
+    } catch (error) {
+      console.error('Failed to fetch next roll number:', error)
+    } finally {
+      setLoadingRollNumber(false)
+    }
+  }
+
+  const fetchNextEmployeeId = async (institutionId, role) => {
+    try {
+      setLoadingEmployeeId(true)
+      const token = localStorage.getItem('meridian_token')
+      const idType = role === 'teacher' ? 'teacherEmployeeId' : 'staffEmployeeId'
+      const response = await fetch(`${API_BASE_URL}/users/id-generator/next?institutionId=${institutionId}&idType=${idType}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await response.json()
+      if (data.success && data.data?.id) {
+        if (role === 'teacher') {
+          setFormData(prev => ({
+            ...prev,
+            teacherProfile: {
+              ...prev.teacherProfile,
+              employeeId: data.data.id
+            }
+          }))
+        } else if (role === 'staff') {
+          setFormData(prev => ({
+            ...prev,
+            staffProfile: {
+              ...prev.staffProfile,
+              employeeId: data.data.id
+            }
+          }))
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch next employee ID:', error)
+    } finally {
+      setLoadingEmployeeId(false)
+    }
+  }
+
+  const fetchStudents = async (institutionId) => {
+    try {
+      setLoadingStudents(true)
+      const token = localStorage.getItem('meridian_token')
+      const response = await fetch(`${API_BASE_URL}/users?role=student&limit=100`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await response.json()
+      if (data.success) {
+        setStudents(data.data || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch students:', error)
+    } finally {
+      setLoadingStudents(false)
+    }
+  }
+
+  const handleChildToggle = (studentId) => {
+    setFormData(prev => {
+      const currentChildren = prev.parentProfile.children || []
+      const isSelected = currentChildren.includes(studentId)
+      return {
+        ...prev,
+        parentProfile: {
+          ...prev.parentProfile,
+          children: isSelected
+            ? currentChildren.filter(id => id !== studentId)
+            : [...currentChildren, studentId]
+        }
+      }
+    })
+  }
+
+  const filteredStudents = students.filter(student => {
+    if (!studentSearch) return true
+    const fullName = `${student.profile?.firstName} ${student.profile?.lastName}`.toLowerCase()
+    const admissionNo = student.studentData?.admissionNumber?.toLowerCase() || ''
+    const searchLower = studentSearch.toLowerCase()
+    return fullName.includes(searchLower) || admissionNo.includes(searchLower)
+  })
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -202,6 +375,12 @@ export default function AddUser() {
       }
       if (formData.role === 'staff' && formData.staffProfile.employeeId) {
         body.staffProfile = formData.staffProfile
+      }
+      if (formData.role === 'parent') {
+        body.parentProfile = {
+          relation: formData.parentProfile.relation,
+          children: formData.parentProfile.children
+        }
       }
 
       const response = await fetch(`${API_BASE_URL}/users`, {
@@ -476,14 +655,22 @@ export default function AddUser() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
-                <input
-                  type="text"
-                  name="teacherProfile.employeeId"
-                  value={formData.teacherProfile.employeeId}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  placeholder="e.g., TCH001"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="teacherProfile.employeeId"
+                    value={formData.teacherProfile.employeeId}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder={loadingEmployeeId ? 'Loading...' : 'Auto-generated'}
+                  />
+                  {loadingEmployeeId && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Auto-generated, but you can edit if needed</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
@@ -522,29 +709,27 @@ export default function AddUser() {
               Student Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Admission Number */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Admission Number</label>
-                <input
-                  type="text"
-                  name="studentProfile.admissionNumber"
-                  value={formData.studentProfile.admissionNumber}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  placeholder="e.g., ADM2024001"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="studentProfile.admissionNumber"
+                    value={formData.studentProfile.admissionNumber}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder={loadingAdmissionNumber ? 'Loading...' : 'Auto-generated'}
+                  />
+                  {loadingAdmissionNumber && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Auto-generated, but you can edit if needed</p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Roll Number</label>
-                <input
-                  type="text"
-                  name="studentProfile.rollNumber"
-                  value={formData.studentProfile.rollNumber}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  placeholder="e.g., 001"
-                />
-              </div>
-              
+
               {/* Class Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -588,7 +773,28 @@ export default function AddUser() {
                 )}
               </div>
 
-              {/* Section Selection - Only show if class is selected and has sections */}
+              {/* Roll Number */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Roll Number</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="studentProfile.rollNumber"
+                    value={formData.studentProfile.rollNumber}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder={loadingRollNumber ? 'Loading...' : 'Select class first'}
+                  />
+                  {loadingRollNumber && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Auto-filled based on class/section, editable</p>
+              </div>
+
+              {/* Section Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
                 {!formData.studentProfile.class ? (
@@ -636,14 +842,22 @@ export default function AddUser() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
-                <input
-                  type="text"
-                  name="staffProfile.employeeId"
-                  value={formData.staffProfile.employeeId}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  placeholder="e.g., STF001"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="staffProfile.employeeId"
+                    value={formData.staffProfile.employeeId}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder={loadingEmployeeId ? 'Loading...' : 'Auto-generated'}
+                  />
+                  {loadingEmployeeId && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Auto-generated, but you can edit if needed</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
@@ -666,6 +880,130 @@ export default function AddUser() {
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                   placeholder="e.g., Office Assistant"
                 />
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {formData.role === 'parent' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm"
+          >
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Parent Information
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Relation <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="parentProfile.relation"
+                  value={formData.parentProfile.relation}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">-- Select Relation --</option>
+                  <option value="father">Father</option>
+                  <option value="mother">Mother</option>
+                  <option value="guardian">Guardian</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Link Children (Students)
+                </label>
+                
+                {/* Search box */}
+                <div className="relative mb-3">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={studentSearch}
+                    onChange={(e) => setStudentSearch(e.target.value)}
+                    placeholder="Search students by name or admission number..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+
+                {/* Selected children badges */}
+                {formData.parentProfile.children.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {formData.parentProfile.children.map(childId => {
+                      const student = students.find(s => s._id === childId)
+                      return student ? (
+                        <span
+                          key={childId}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm"
+                        >
+                          {student.profile?.firstName} {student.profile?.lastName}
+                          <button
+                            type="button"
+                            onClick={() => handleChildToggle(childId)}
+                            className="ml-1 hover:text-primary-900"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ) : null
+                    })}
+                  </div>
+                )}
+
+                {/* Student list */}
+                {isPlatformAdmin && !formData.institutionId ? (
+                  <div className="px-4 py-3 text-blue-600 bg-blue-50 rounded-lg text-sm">
+                    Please select an institution first to see available students.
+                  </div>
+                ) : loadingStudents ? (
+                  <div className="px-4 py-3 text-gray-500 text-sm">Loading students...</div>
+                ) : filteredStudents.length === 0 ? (
+                  <div className="px-4 py-3 text-gray-500 bg-gray-50 rounded-lg text-sm">
+                    {studentSearch ? 'No students match your search.' : 'No students found in this institution.'}
+                  </div>
+                ) : (
+                  <div className="border border-gray-200 rounded-lg max-h-60 overflow-y-auto">
+                    {filteredStudents.map(student => {
+                      const isSelected = formData.parentProfile.children.includes(student._id)
+                      return (
+                        <label
+                          key={student._id}
+                          className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${
+                            isSelected ? 'bg-primary-50' : ''
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleChildToggle(student._id)}
+                            className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900">
+                              {student.profile?.firstName} {student.profile?.lastName}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {student.studentData?.admissionNumber && (
+                                <span>Adm: {student.studentData.admissionNumber}</span>
+                              )}
+                              {student.studentData?.class?.name && (
+                                <span className="ml-2">Class: {student.studentData.class.name}</span>
+                              )}
+                            </div>
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 mt-2">
+                  Select one or more students to link as children of this parent.
+                </p>
               </div>
             </div>
           </motion.div>

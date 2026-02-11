@@ -25,6 +25,10 @@
     min-height: 100dvh;
     width: 100%;
   }
+
+  * {
+    box-sizing: border-box;
+  }
 }
 
 @layer utilities {

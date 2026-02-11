@@ -9,6 +9,7 @@ import TermsOfService from './pages/public/TermsOfService'
 import ContactUs from './pages/public/ContactUs'
 import AboutUs from './pages/public/AboutUs'
 import Login from './pages/auth/Login'
+import ForgotPassword from './pages/auth/ForgotPassword'
 import DashboardLayout from './components/layout/DashboardLayout'
 import DashboardHome from './pages/dashboard/DashboardHome'
 import TeacherDashboard from './pages/dashboard/TeacherDashboard'
@@ -77,6 +78,7 @@ function App() {
           <Route path="/contact" element={<ContactUs />} />
           <Route path="/about" element={<AboutUs />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/admissions/apply" element={<PublicApplicationForm />} />
 
           {/* Dashboard Routes - Protected */}

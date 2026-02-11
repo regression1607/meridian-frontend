@@ -3,11 +3,14 @@ import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import { toast } from 'react-toastify'
 import {
-  CreditCard, Plus, Search, Edit, Trash2, X,
-  DollarSign, Calendar, Users, CheckCircle
+  CreditCard, Plus, Edit, Trash2, X,
+  DollarSign, Calendar, Users, CheckCircle, Eye
 } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
-import { TableSkeleton } from '../../../components/ui/Loading'
+import Pagination from '../../../components/ui/Pagination'
+import SearchFilter from '../../../components/ui/SearchFilter'
+import DataTable, { ActionButtons } from '../../../components/ui/DataTable'
+import ConfirmDialog from '../../../components/ui/ConfirmDialog'
 import { feesApi, classesApi } from '../../../services/api'
 
 const FEE_TYPES = [
@@ -38,7 +41,10 @@ export default function FeeStructures() {
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [saving, setSaving] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteDialog, setDeleteDialog] = useState({ open: false, structure: null })
+  const [filters, setFilters] = useState({ search: '', type: 'all', frequency: 'all' })
+  const [pagination, setPagination] = useState({ page: 1, limit: 8, total: 0, totalPages: 0 })
   const [formData, setFormData] = useState({
     name: '',
     type: 'tuition',
@@ -55,7 +61,35 @@ export default function FeeStructures() {
   useEffect(() => {
     fetchStructures()
     fetchClasses()
-  }, [])
+  }, [filters, pagination.page])
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }, [filters.search, filters.type, filters.frequency])
+
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+  }
+
+  const handlePageChange = (page) => {
+    setPagination(prev => ({ ...prev, page }))
+  }
+
+  const handleDelete = async () => {
+    if (!deleteDialog.structure) return
+    try {
+      setDeleting(true)
+      await feesApi.deleteStructure(deleteDialog.structure._id)
+      toast.success('Fee structure deleted successfully')
+      setDeleteDialog({ open: false, structure: null })
+      fetchStructures()
+    } catch (error) {
+      toast.error(error.message || 'Failed to delete fee structure')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const fetchStructures = async () => {
     try {
@@ -162,11 +196,22 @@ export default function FeeStructures() {
     }).format(amount)
   }
 
+  // Client-side filtering
   const filteredStructures = structures.filter(s => {
-    if (!searchQuery) return true
-    return s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           s.type.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesSearch = !filters.search || 
+      s.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+      s.type.toLowerCase().includes(filters.search.toLowerCase())
+    const matchesType = filters.type === 'all' || s.type === filters.type
+    const matchesFrequency = filters.frequency === 'all' || s.frequency === filters.frequency
+    return matchesSearch && matchesType && matchesFrequency
   })
+
+  // Client-side pagination
+  const totalPages = Math.ceil(filteredStructures.length / pagination.limit)
+  const paginatedStructures = filteredStructures.slice(
+    (pagination.page - 1) * pagination.limit,
+    pagination.page * pagination.limit
+  )
 
   return (
     <div className="space-y-6">
@@ -184,109 +229,114 @@ export default function FeeStructures() {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search fee structures..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
-        </div>
-      </div>
+      {/* Filters */}
+      <SearchFilter
+        searchValue={filters.search}
+        onSearchChange={(value) => handleFilterChange('search', value)}
+        searchPlaceholder="Search fee structures..."
+        filters={[
+          {
+            key: 'type',
+            value: filters.type,
+            options: [
+              { value: 'all', label: 'All Types' },
+              ...FEE_TYPES
+            ]
+          },
+          {
+            key: 'frequency',
+            value: filters.frequency,
+            options: [
+              { value: 'all', label: 'All Frequencies' },
+              ...FREQUENCY_OPTIONS
+            ]
+          }
+        ]}
+        onFilterChange={handleFilterChange}
+        onClearFilters={() => setFilters({ search: '', type: 'all', frequency: 'all' })}
+      />
 
-      {/* Fee Structures Grid */}
-      {loading ? (
-        <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-          <TableSkeleton rows={4} cols={4} />
-        </div>
-      ) : filteredStructures.length === 0 ? (
-        <div className="bg-white rounded-xl p-12 border border-gray-100 shadow-sm text-center">
-          <CreditCard className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-          <p className="text-gray-500 font-medium">No Fee Structures Found</p>
-          <p className="text-sm text-gray-400 mt-1">Create your first fee structure to get started</p>
-          <button
-            onClick={() => openModal()}
-            className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition text-sm inline-flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" /> Add Fee Structure
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredStructures.map((structure, index) => (
-            <motion.div
-              key={structure._id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center">
-                    <CreditCard className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{structure.name}</h3>
-                    <p className="text-xs text-gray-500 capitalize">{structure.type.replace('_', ' ')}</p>
-                  </div>
+      {/* Fee Structures Table */}
+      <DataTable
+        columns={[
+          { header: 'Name', accessor: 'name' },
+          { header: 'Type', accessor: 'type' },
+          { header: 'Amount', accessor: 'amount' },
+          { header: 'Frequency', accessor: 'frequency' },
+          { header: 'Applicable To', accessor: 'applicableTo' },
+          { header: 'Actions', accessor: 'actions', align: 'right' }
+        ]}
+        data={paginatedStructures}
+        loading={loading}
+        emptyMessage="No fee structures found"
+        emptyIcon={CreditCard}
+        renderRow={(structure) => (
+          <>
+            <td className="px-4 py-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center">
+                  <CreditCard className="w-4 h-4" />
                 </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => openModal(structure)}
-                    className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </button>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{structure.name}</p>
+                  {structure.lateFee > 0 && (
+                    <p className="text-xs text-red-500">Late fee: {formatCurrency(structure.lateFee)}</p>
+                  )}
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Amount</span>
-                  <span className="text-lg font-bold text-primary-600">{formatCurrency(structure.amount)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Frequency</span>
-                  <span className="text-sm font-medium text-gray-700 capitalize">{structure.frequency?.replace('_', ' ')}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Applicable To</span>
-                  <span className="text-sm font-medium text-gray-700 capitalize">{structure.applicableTo}</span>
-                </div>
-                {structure.lateFee > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">Late Fee</span>
-                    <span className="text-sm font-medium text-red-600">{formatCurrency(structure.lateFee)}</span>
-                  </div>
+            </td>
+            <td className="px-4 py-3">
+              <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 capitalize">
+                {structure.type?.replace('_', ' ')}
+              </span>
+            </td>
+            <td className="px-4 py-3">
+              <span className="text-sm font-semibold text-primary-600">{formatCurrency(structure.amount)}</span>
+            </td>
+            <td className="px-4 py-3">
+              <span className="text-sm text-gray-600 capitalize">{structure.frequency?.replace('_', ' ')}</span>
+            </td>
+            <td className="px-4 py-3">
+              <div>
+                <span className="text-sm text-gray-600 capitalize">{structure.applicableTo}</span>
+                {structure.classes?.length > 0 && (
+                  <p className="text-xs text-gray-400">{structure.classes.length} classes</p>
                 )}
               </div>
+            </td>
+            <td className="px-4 py-3">
+              <ActionButtons
+                actions={[
+                  { icon: Edit, onClick: () => openModal(structure), title: 'Edit' },
+                  { icon: Trash2, onClick: () => setDeleteDialog({ open: true, structure }), title: 'Delete', className: 'hover:bg-red-50 text-gray-500 hover:text-red-600' }
+                ]}
+              />
+            </td>
+          </>
+        )}
+      />
 
-              {structure.classes?.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-gray-100">
-                  <p className="text-xs text-gray-500 mb-1">Classes:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {structure.classes.slice(0, 3).map(cls => (
-                      <span key={cls._id || cls} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
-                        {cls.name || 'Class'}
-                      </span>
-                    ))}
-                    {structure.classes.length > 3 && (
-                      <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
-                        +{structure.classes.length - 3} more
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          ))}
-        </div>
-      )}
+      {/* Pagination */}
+      <Pagination
+        currentPage={pagination.page}
+        totalPages={totalPages}
+        totalItems={filteredStructures.length}
+        itemsPerPage={pagination.limit}
+        onPageChange={handlePageChange}
+        itemName="fee structures"
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={deleteDialog.open}
+        onClose={() => setDeleteDialog({ open: false, structure: null })}
+        onConfirm={handleDelete}
+        title="Delete Fee Structure"
+        message={`Are you sure you want to delete "${deleteDialog.structure?.name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        type="danger"
+        loading={deleting}
+      />
 
       {/* Add/Edit Modal */}
       {showModal && createPortal(

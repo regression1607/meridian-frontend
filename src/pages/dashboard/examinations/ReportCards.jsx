@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { examinationsApi, classesApi } from '../../../services/api'
 import { toast } from 'react-toastify'
+import Pagination from '../../../components/ui/Pagination'
 
 const gradeColors = {
   'A+': 'bg-green-100 text-green-700',
@@ -49,12 +50,17 @@ export default function ReportCards() {
     return student.email?.split('@')[0] || student.admissionNumber || 'Unknown'
   }
   const [filters, setFilters] = useState({ class: '', section: '', term: '', status: '' })
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 })
+  const [pagination, setPagination] = useState({ page: 1, limit: 8, total: 0, totalPages: 1 })
   const [selectedCards, setSelectedCards] = useState([])
 
   useEffect(() => {
     fetchData()
-  }, [filters, pagination.page])
+  }, [filters.class, filters.section, filters.term, filters.status, pagination.page])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }, [filters.class, filters.section, filters.term, filters.status])
 
   useEffect(() => {
     if (filters.class) {
@@ -412,6 +418,16 @@ export default function ReportCards() {
             </table>
           </div>
         )}
+
+        {/* Pagination */}
+        <Pagination
+          currentPage={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.total}
+          itemsPerPage={pagination.limit}
+          onPageChange={(page) => setPagination(prev => ({ ...prev, page }))}
+          itemName="report cards"
+        />
       </div>
 
       {/* Modals */}

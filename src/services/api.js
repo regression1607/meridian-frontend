@@ -26,9 +26,14 @@ class ApiService {
       const data = await response.json()
 
       if (!response.ok) {
+        // Build detailed error message from validation errors if present
+        let errorMessage = data.message || 'Something went wrong'
+        if (data.errors && Array.isArray(data.errors) && data.errors.length > 0) {
+          errorMessage = data.errors.map(e => e.message || e).join(', ')
+        }
         throw {
           status: response.status,
-          message: data.message || 'Something went wrong',
+          message: errorMessage,
           errors: data.errors
         }
       }
@@ -113,14 +118,29 @@ export const authApi = {
   logout: () => api.post('/auth/logout'),
   me: () => api.get('/auth/me'),
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
-  resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }),
-  changePassword: (oldPassword, newPassword) => api.post('/auth/change-password', { oldPassword, newPassword })
+  verifyOTP: (email, otp) => api.post('/auth/verify-otp', { email, otp }),
+  resetPassword: (email, resetToken, newPassword) => api.post('/auth/reset-password', { email, resetToken, newPassword }),
+  changePassword: (oldPassword, newPassword) => api.post('/auth/change-password', { oldPassword, newPassword }),
+  // 2FA endpoints
+  enable2FA: () => api.post('/auth/2fa/enable'),
+  disable2FA: () => api.post('/auth/2fa/disable'),
+  send2FACode: () => api.post('/auth/2fa/send-code'),
+  verify2FACode: (code) => api.post('/auth/2fa/verify-code', { code }),
+  // Password change with OTP (for 2FA enabled users)
+  sendPasswordChangeOTP: () => api.post('/auth/password-change/send-otp'),
+  verifyPasswordChangeOTP: (otp) => api.post('/auth/password-change/verify-otp', { otp }),
+  changePasswordWith2FA: (newPassword, otpToken) => api.post('/auth/password-change/with-2fa', { newPassword, otpToken }),
+  // Profile endpoints
+  updateProfile: (profileData) => api.put('/auth/profile', profileData),
+  uploadAvatar: (formData) => api.upload('/auth/profile/avatar', formData),
+  uploadCoverPhoto: (formData) => api.upload('/auth/profile/cover', formData)
 }
 
 // Users endpoints
 export const usersApi = {
   getAll: (params) => api.get('/users', params),
   getById: (id) => api.get(`/users/${id}`),
+  getFullDetails: (id) => api.get(`/users/${id}/details`),
   create: (userData) => api.post('/users', userData),
   update: (id, userData) => api.put(`/users/${id}`, userData),
   delete: (id) => api.delete(`/users/${id}`),
@@ -160,10 +180,18 @@ export const feesApi = {
   getPayments: (params) => api.get('/fees/payments', params),
   recordPayment: (data) => api.post('/fees/payments', data),
   getStudentFees: (studentId) => api.get(`/fees/student/${studentId}`),
+  getStudentDues: (studentId) => api.get(`/fees/student/${studentId}/dues`),
   getMyFees: () => api.get('/fees/me'),
   // Stats & Reports
   getStats: (params) => api.get('/fees/stats', params),
-  getDefaulters: (params) => api.get('/fees/defaulters', params)
+  getDefaulters: (params) => api.get('/fees/defaulters', params),
+  // Fee Reminders
+  sendReminder: (paymentId) => api.post(`/fees/payments/${paymentId}/remind`),
+  sendBulkReminders: (paymentIds) => api.post('/fees/payments/bulk-remind', { paymentIds }),
+  // Update Payment Status
+  updatePaymentStatus: (paymentId, status) => api.patch(`/fees/payments/${paymentId}/status`, { status }),
+  // Generate Monthly Fees
+  generateMonthlyFees: (month, year) => api.post('/fees/generate', { month, year })
 }
 
 // Classes endpoints
@@ -408,6 +436,8 @@ export const payrollApi = {
   getSalaryById: (id) => api.get(`/payroll/salaries/${id}`),
   getMySalary: () => api.get('/payroll/salaries/me'),
   assignSalary: (data) => api.post('/payroll/salaries', data),
+  updateSalary: (id, data) => api.put(`/payroll/salaries/${id}`, data),
+  deleteSalary: (id) => api.delete(`/payroll/salaries/${id}`),
   // Payslips
   getPayslips: (params) => api.get('/payroll/payslips', params),
   getPayslipById: (id) => api.get(`/payroll/payslips/${id}`),

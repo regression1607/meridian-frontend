@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { libraryApi, usersApi } from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
+import Pagination from '../../../components/ui/Pagination'
 import { UserSearchSelect, BookSearchSelect } from '../../../components/ui/SearchableSelect'
 
 export default function IssuedBooks() {
@@ -15,7 +16,7 @@ export default function IssuedBooks() {
   const [issues, setIssues] = useState([])
   const [books, setBooks] = useState([])
   const [users, setUsers] = useState([])
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0 })
+  const [pagination, setPagination] = useState({ page: 1, limit: 8, total: 0, pages: 1 })
   
   // Filters
   const [statusFilter, setStatusFilter] = useState('issued')
@@ -334,27 +335,14 @@ export default function IssuedBooks() {
       </div>
 
       {/* Pagination */}
-      {pagination.pages > 1 && (
-        <div className="flex justify-center gap-2">
-          <button
-            onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
-            disabled={pagination.page === 1}
-            className="px-4 py-2 border rounded-lg disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <span className="px-4 py-2">
-            Page {pagination.page} of {pagination.pages}
-          </span>
-          <button
-            onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
-            disabled={pagination.page === pagination.pages}
-            className="px-4 py-2 border rounded-lg disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
-      )}
+      <Pagination
+        currentPage={pagination.page}
+        totalPages={pagination.pages}
+        totalItems={pagination.total}
+        itemsPerPage={pagination.limit}
+        onPageChange={(page) => setPagination(p => ({ ...p, page }))}
+        itemName="issued books"
+      />
 
       {/* Issue Book Modal */}
       <IssueBookModal

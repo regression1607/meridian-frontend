@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { examinationsApi, classesApi, subjectsApi } from '../../../services/api'
 import { toast } from 'react-toastify'
+import Pagination from '../../../components/ui/Pagination'
 import {
   parseCSV, downloadCSVTemplate, readCSVFile, generateCSV, downloadCSV, CSV_TEMPLATES
 } from '../../../utils/csvUtils'
@@ -36,7 +37,7 @@ export default function Results() {
   const [editingResult, setEditingResult] = useState(null)
   const [saving, setSaving] = useState(false)
   const [filters, setFilters] = useState({ exam: '', class: '', subject: '', status: '' })
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 })
+  const [pagination, setPagination] = useState({ page: 1, limit: 8, total: 0, totalPages: 1 })
   const [selectedResults, setSelectedResults] = useState([])
   const [exporting, setExporting] = useState(false)
 
@@ -51,7 +52,12 @@ export default function Results() {
 
   useEffect(() => {
     fetchData()
-  }, [filters, pagination.page])
+  }, [filters.exam, filters.class, filters.subject, filters.status, pagination.page])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }, [filters.exam, filters.class, filters.subject, filters.status])
 
   const fetchData = async () => {
     try {
@@ -379,6 +385,16 @@ export default function Results() {
             </table>
           </div>
         )}
+
+        {/* Pagination */}
+        <Pagination
+          currentPage={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.total}
+          itemsPerPage={pagination.limit}
+          onPageChange={(page) => setPagination(prev => ({ ...prev, page }))}
+          itemName="results"
+        />
       </div>
 
       {/* Modals */}
@@ -607,9 +623,11 @@ function ResultFormModal({ isOpen, onClose, onSave, result, exams, saving }) {
 }
 
 function BulkResultModal({ isOpen, onClose, onSave, exams, classes, saving }) {
+  const [selectedClass, setSelectedClass] = useState('')
   const [selectedExam, setSelectedExam] = useState('')
   const [students, setStudents] = useState([])
   const [marks, setMarks] = useState({})
+  const [existingMarks, setExistingMarks] = useState({}) // Track which students have existing results
   const [exam, setExam] = useState(null)
 
   const getStudentName = (s) => {
@@ -620,20 +638,51 @@ function BulkResultModal({ isOpen, onClose, onSave, exams, classes, saving }) {
     return s.email?.split('@')[0] || s.admissionNumber || 'Unknown'
   }
 
+  // Filter exams by selected class
+  const filteredExams = selectedClass 
+    ? exams.filter(e => e.class?._id === selectedClass)
+    : []
+
+  // Reset exam when class changes
   useEffect(() => {
-    if (selectedExam) {
+    setSelectedExam('')
+    setExam(null)
+    setStudents([])
+    setMarks({})
+    setExistingMarks({})
+  }, [selectedClass])
+
+  // Fetch students and existing results when exam is selected
+  useEffect(() => {
+    if (selectedExam && selectedClass) {
       const examData = exams.find(e => e._id === selectedExam)
       setExam(examData)
-      if (examData?.class?._id) {
-        classesApi.getStudents(examData.class._id).then(res => {
-          setStudents(res.data || [])
-          const initialMarks = {}
-          res.data?.forEach(s => { initialMarks[s._id] = '' })
-          setMarks(initialMarks)
+      
+      // Fetch students and existing results in parallel
+      Promise.all([
+        classesApi.getStudents(selectedClass),
+        examinationsApi.getResults({ exam: selectedExam, limit: 100 })
+      ]).then(([studentsRes, resultsRes]) => {
+        const studentsList = studentsRes.data || []
+        setStudents(studentsList)
+        
+        // Create a map of existing results by student ID
+        const existingResults = {}
+        ;(resultsRes.data || []).forEach(r => {
+          const studentId = r.student?._id || r.student
+          if (studentId) existingResults[studentId] = r.marksObtained
         })
-      }
+        setExistingMarks(existingResults)
+        
+        // Pre-populate marks with existing results or empty
+        const initialMarks = {}
+        studentsList.forEach(s => {
+          initialMarks[s._id] = existingResults[s._id] !== undefined ? existingResults[s._id] : ''
+        })
+        setMarks(initialMarks)
+      })
     }
-  }, [selectedExam, exams])
+  }, [selectedExam, selectedClass, exams])
 
   const handleSubmit = () => {
     const results = Object.entries(marks)
@@ -664,18 +713,35 @@ function BulkResultModal({ isOpen, onClose, onSave, exams, classes, saving }) {
           <h2 className="text-lg font-semibold">Bulk Result Entry</h2>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
         </div>
-        <div className="p-4 border-b">
-          <label className="block text-sm font-medium mb-1">Select Exam *</label>
-          <select
-            value={selectedExam}
-            onChange={(e) => setSelectedExam(e.target.value)}
-            className="w-full px-3 py-2 border rounded-lg"
-          >
-            <option value="">Select Exam</option>
-            {exams.map(e => <option key={e._id} value={e._id}>{e.name} - {e.class?.name} - {e.subject?.name}</option>)}
-          </select>
+        <div className="p-4 border-b space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Select Class *</label>
+            <select
+              value={selectedClass}
+              onChange={(e) => setSelectedClass(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg"
+            >
+              <option value="">Select Class</option>
+              {classes.map(c => <option key={c._id} value={c._id}>{c.name} {c.section ? `- ${c.section}` : ''}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Select Exam *</label>
+            <select
+              value={selectedExam}
+              onChange={(e) => setSelectedExam(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg"
+              disabled={!selectedClass}
+            >
+              <option value="">{selectedClass ? 'Select Exam' : 'Select class first'}</option>
+              {filteredExams.map(e => <option key={e._id} value={e._id}>{e.name} - {e.subject?.name}</option>)}
+            </select>
+            {selectedClass && filteredExams.length === 0 && (
+              <p className="mt-1 text-sm text-orange-600">No exams found for this class</p>
+            )}
+          </div>
           {exam && (
-            <div className="mt-2 text-sm text-gray-500">
+            <div className="text-sm text-gray-500 bg-gray-50 p-2 rounded">
               Total Marks: {exam.totalMarks} | Passing: {exam.passingMarks}
             </div>
           )}
@@ -688,31 +754,46 @@ function BulkResultModal({ isOpen, onClose, onSave, exams, classes, saving }) {
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Roll No</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Student Name</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Marks</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {students.map((student, idx) => (
-                  <tr key={student._id}>
-                    <td className="px-3 py-2 text-sm">{idx + 1}</td>
-                    <td className="px-3 py-2 text-sm font-medium">{getStudentName(student)}</td>
-                    <td className="px-3 py-2">
-                      <input
-                        type="number"
-                        value={marks[student._id] || ''}
-                        onChange={(e) => setMarks({ ...marks, [student._id]: e.target.value })}
-                        className="w-24 px-2 py-1 border rounded"
-                        min={0}
-                        max={exam?.totalMarks || 100}
-                        placeholder="0"
-                      />
-                    </td>
-                  </tr>
-                ))}
+                {students.map((student, idx) => {
+                  const hasExisting = existingMarks[student._id] !== undefined
+                  return (
+                    <tr key={student._id} className={hasExisting ? 'bg-blue-50/50' : ''}>
+                      <td className="px-3 py-2 text-sm">{idx + 1}</td>
+                      <td className="px-3 py-2 text-sm font-medium">{getStudentName(student)}</td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="number"
+                          value={marks[student._id] !== undefined && marks[student._id] !== '' ? marks[student._id] : ''}
+                          onChange={(e) => setMarks({ ...marks, [student._id]: e.target.value })}
+                          className={`w-24 px-2 py-1 border rounded ${hasExisting ? 'border-blue-300 bg-white' : ''}`}
+                          min={0}
+                          max={exam?.totalMarks || 100}
+                          placeholder="0"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        {hasExisting ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                            Existing
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">
+                            New
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           ) : (
             <div className="text-center text-gray-500 py-8">
-              {selectedExam ? 'No students found' : 'Select an exam to enter results'}
+              {!selectedClass ? 'Select a class first' : !selectedExam ? 'Select an exam to enter results' : 'No students found in this class'}
             </div>
           )}
         </div>

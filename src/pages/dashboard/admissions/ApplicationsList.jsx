@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { TableSkeleton } from '../../../components/ui/Loading'
+import Pagination from '../../../components/ui/Pagination'
 import { admissionsApi, classesApi } from '../../../services/api'
 import { generateCSV, downloadCSV, CSV_TEMPLATES } from '../../../utils/csvUtils'
 
@@ -32,7 +33,7 @@ export default function ApplicationsList() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [classFilter, setClassFilter] = useState('all')
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 0 })
+  const [pagination, setPagination] = useState({ page: 1, limit: 8, total: 0, pages: 0 })
 
   useEffect(() => {
     fetchClasses()
@@ -41,7 +42,12 @@ export default function ApplicationsList() {
 
   useEffect(() => {
     fetchApplications()
-  }, [statusFilter, classFilter, pagination.page, searchQuery])
+  }, [statusFilter, classFilter, pagination.page])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }, [statusFilter, classFilter, searchQuery])
 
   const fetchClasses = async () => {
     try {
@@ -474,29 +480,14 @@ export default function ApplicationsList() {
         )}
 
         {/* Pagination */}
-        {pagination.pages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
-            <p className="text-sm text-gray-600">
-              Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                disabled={pagination.page === 1}
-                className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                disabled={pagination.page === pagination.pages}
-                className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={pagination.page}
+          totalPages={pagination.pages}
+          totalItems={pagination.total}
+          itemsPerPage={pagination.limit}
+          onPageChange={(page) => setPagination(prev => ({ ...prev, page }))}
+          itemName="applications"
+        />
       </div>
     </div>
   )

@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'react-toastify'
 import {
   Bus, Route, Users, Plus, Search, Filter, Edit2, Trash2, Eye,
   MapPin, Phone, User, Fuel, Calendar, Shield, X, ChevronDown
 } from 'lucide-react'
-import { transportApi, usersApi } from '../../../services/api'
+import { transportApi } from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
 import DataTable from '../../../components/ui/DataTable'
 import Pagination from '../../../components/ui/Pagination'
-import { UserSearchSelect } from '../../../components/ui/SearchableSelect'
+import { ApiUserSearchSelect } from '../../../components/ui/SearchableSelect'
 
 const TABS = [
   { id: 'vehicles', label: 'Vehicles', icon: Bus },
@@ -41,8 +41,6 @@ export default function TransportManagement() {
   const [vehicles, setVehicles] = useState([])
   const [routes, setRoutes] = useState([])
   const [allocations, setAllocations] = useState([])
-  const [students, setStudents] = useState([])
-  const [loadingStudents, setLoadingStudents] = useState(false)
   
   // Pagination states
   const [vehiclePagination, setVehiclePagination] = useState({ page: 1, totalPages: 1, total: 0 })
@@ -62,41 +60,13 @@ export default function TransportManagement() {
     fetchData()
   }, [activeTab])
 
-  // Load students on mount and when allocation modal opens
-  useEffect(() => {
-    if (showAllocationModal) {
-      loadStudents()
-    }
-  }, [showAllocationModal])
-
-  const loadStudents = async () => {
-    setLoadingStudents(true)
-    try {
-      const res = await usersApi.getAll({ role: 'student', limit: 100 })
-      console.log('Students API response:', res)
-      // ApiResponse.paginated returns { success, message, data: [...], meta }
-      if (res.success && Array.isArray(res.data)) {
-        console.log('Loaded students:', res.data.length)
-        setStudents(res.data)
-      } else {
-        console.log('Unexpected response format:', typeof res.data)
-        setStudents([])
-      }
-    } catch (error) {
-      console.error('Failed to load students:', error)
-      toast.error('Failed to load students')
-    } finally {
-      setLoadingStudents(false)
-    }
-  }
-
   const fetchData = async () => {
     setLoading(true)
     try {
       const [statsRes, vehiclesRes, routesRes] = await Promise.all([
         transportApi.getStats(),
-        transportApi.getVehicles({ page: vehiclePagination.page, limit: 10, search: searchTerm }),
-        transportApi.getRoutes({ page: routePagination.page, limit: 10, search: searchTerm })
+        transportApi.getVehicles({ page: vehiclePagination.page, limit: 8, search: searchTerm }),
+        transportApi.getRoutes({ page: routePagination.page, limit: 8, search: searchTerm })
       ])
 
       if (statsRes.success) setStats(statsRes.data)
@@ -110,7 +80,7 @@ export default function TransportManagement() {
       }
 
       if (activeTab === 'allocations') {
-        const allocRes = await transportApi.getAllocations({ page: allocationPagination.page, limit: 10, search: searchTerm })
+        const allocRes = await transportApi.getAllocations({ page: allocationPagination.page, limit: 8, search: searchTerm })
         if (allocRes.success) {
           setAllocations(allocRes.data || [])
           if (allocRes.pagination) setAllocationPagination(allocRes.pagination)
@@ -474,15 +444,14 @@ export default function TransportManagement() {
         </div>
 
         {/* Pagination */}
-        {currentPagination.totalPages > 1 && (
-          <div className="p-4 border-t border-gray-200">
-            <Pagination
-              currentPage={currentPagination.page}
-              totalPages={currentPagination.totalPages}
-              onPageChange={handlePageChange}
-            />
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPagination.page}
+          totalPages={currentPagination.totalPages}
+          totalItems={currentPagination.total}
+          itemsPerPage={8}
+          onPageChange={handlePageChange}
+          itemName={activeTab}
+        />
       </div>
 
       {/* Modals */}
@@ -505,8 +474,6 @@ export default function TransportManagement() {
         onSave={handleSaveAllocation}
         allocation={editingItem}
         routes={routes}
-        students={students}
-        loadingStudents={loadingStudents}
       />
     </div>
   )
@@ -897,8 +864,7 @@ function RouteModal({ isOpen, onClose, onSave, route, vehicles }) {
 }
 
 // Allocation Modal
-function AllocationModal({ isOpen, onClose, onSave, allocation, routes, students, loadingStudents }) {
-  const dropdownRef = useRef(null)
+function AllocationModal({ isOpen, onClose, onSave, allocation, routes }) {
   const [formData, setFormData] = useState({
     student: '',
     route: '',
@@ -909,41 +875,6 @@ function AllocationModal({ isOpen, onClose, onSave, allocation, routes, students
   })
 
   const [selectedRoute, setSelectedRoute] = useState(null)
-  const [studentSearch, setStudentSearch] = useState('')
-  const [showStudentDropdown, setShowStudentDropdown] = useState(false)
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowStudentDropdown(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  // Filter students based on search
-  const filteredStudents = useMemo(() => {
-    if (!students || students.length === 0) return []
-    if (!studentSearch) return students.slice(0, 50) // Show first 50 if no search
-    const search = studentSearch.toLowerCase().trim()
-    return students.filter(s => {
-      const firstName = s.profile?.firstName?.toLowerCase() || ''
-      const lastName = s.profile?.lastName?.toLowerCase() || ''
-      const email = s.email?.toLowerCase() || ''
-      const fullName = `${firstName} ${lastName}`
-      return firstName.includes(search) ||
-        lastName.includes(search) ||
-        fullName.includes(search) ||
-        email.includes(search)
-    }).slice(0, 50)
-  }, [students, studentSearch])
-
-  // Get selected student name for display
-  const selectedStudent = useMemo(() => {
-    return students.find(s => s._id === formData.student)
-  }, [students, formData.student])
 
   useEffect(() => {
     if (allocation) {
@@ -956,7 +887,6 @@ function AllocationModal({ isOpen, onClose, onSave, allocation, routes, students
         academicYear: allocation.academicYear
       })
       setSelectedRoute(routes.find(r => r._id === (allocation.route?._id || allocation.route)))
-      setStudentSearch('')
     } else {
       setFormData({
         student: '',
@@ -967,7 +897,6 @@ function AllocationModal({ isOpen, onClose, onSave, allocation, routes, students
         academicYear: `${new Date().getFullYear()}-${(new Date().getFullYear() + 1).toString().slice(-2)}`
       })
       setSelectedRoute(null)
-      setStudentSearch('')
     }
   }, [allocation, isOpen, routes])
 
@@ -980,12 +909,6 @@ function AllocationModal({ isOpen, onClose, onSave, allocation, routes, students
   const handleStopChange = (stopName) => {
     const stop = selectedRoute?.stops?.find(s => s.stopName === stopName)
     setFormData({ ...formData, stop: stopName, monthlyFee: stop?.monthlyFee || 0 })
-  }
-
-  const handleStudentSelect = (student) => {
-    setFormData({ ...formData, student: student._id })
-    setStudentSearch('')
-    setShowStudentDropdown(false)
   }
 
   const handleSubmit = (e) => {
@@ -1017,14 +940,13 @@ function AllocationModal({ isOpen, onClose, onSave, allocation, routes, students
             <label className="block text-sm font-medium text-gray-700 mb-1">Student *</label>
             {allocation ? (
               <div className="w-full px-3 py-2 border rounded-lg bg-gray-50 text-gray-700">
-                {selectedStudent?.profile?.firstName} {selectedStudent?.profile?.lastName} - {selectedStudent?.email}
+                {allocation.student?.profile?.firstName} {allocation.student?.profile?.lastName} - {allocation.student?.email}
               </div>
             ) : (
-              <UserSearchSelect
-                users={students}
+              <ApiUserSearchSelect
                 value={formData.student}
                 onChange={(value) => setFormData({ ...formData, student: value })}
-                loading={loadingStudents}
+                filterRoles={['student']}
                 placeholder="Search student by name or email..."
               />
             )}

@@ -5,10 +5,10 @@ import {
   Wallet, Users, FileText, Gift, CreditCard, TrendingUp,
   Plus, Search, Edit2, Trash2, Eye, X, Check, DollarSign, Download, Printer
 } from 'lucide-react'
-import { payrollApi, usersApi } from '../../../services/api'
+import { payrollApi } from '../../../services/api'
 import DataTable from '../../../components/ui/DataTable'
 import Pagination from '../../../components/ui/Pagination'
-import { UserSearchSelect } from '../../../components/ui/SearchableSelect'
+import { ApiUserSearchSelect } from '../../../components/ui/SearchableSelect'
 import { generateCSV, downloadCSV, CSV_TEMPLATES } from '../../../utils/csvUtils'
 
 const TABS = [
@@ -33,9 +33,7 @@ export default function PayrollManagement() {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({})
   const [data, setData] = useState([])
-  const [employees, setEmployees] = useState([])
   const [structures, setStructures] = useState([])
-  const [loadingEmployees, setLoadingEmployees] = useState(false)
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1 })
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
@@ -47,7 +45,6 @@ export default function PayrollManagement() {
 
   useEffect(() => {
     fetchStats()
-    loadEmployees()
     fetchStructures()
   }, [])
 
@@ -62,25 +59,6 @@ export default function PayrollManagement() {
     } catch (err) { console.error(err) }
   }
 
-  const loadEmployees = async () => {
-    setLoadingEmployees(true)
-    try {
-      // Fetch teachers, staff, and coordinators separately and combine
-      const [teachersRes, staffRes, coordinatorsRes] = await Promise.all([
-        usersApi.getAll({ role: 'teacher', limit: 100 }),
-        usersApi.getAll({ role: 'staff', limit: 100 }),
-        usersApi.getAll({ role: 'coordinator', limit: 100 })
-      ])
-      const allEmployees = [
-        ...(teachersRes.success ? teachersRes.data || [] : []),
-        ...(staffRes.success ? staffRes.data || [] : []),
-        ...(coordinatorsRes.success ? coordinatorsRes.data || [] : [])
-      ]
-      setEmployees(allEmployees)
-    } catch (err) { console.error(err) }
-    setLoadingEmployees(false)
-  }
-
   const fetchStructures = async () => {
     try {
       const res = await payrollApi.getStructures({ limit: 100 })
@@ -92,7 +70,7 @@ export default function PayrollManagement() {
     setLoading(true)
     try {
       let res
-      const params = { page: pagination.page, limit: 10, search: searchTerm }
+      const params = { page: pagination.page, limit: 8, search: searchTerm }
       if (activeTab === 'structures') res = await payrollApi.getStructures(params)
       else if (activeTab === 'salaries') res = await payrollApi.getSalaries(params)
       else if (activeTab === 'payslips') res = await payrollApi.getPayslips({ ...params, month: selectedMonth, year: selectedYear })
@@ -113,7 +91,8 @@ export default function PayrollManagement() {
         else await payrollApi.createStructure(formData)
         fetchStructures() // Refresh structures for dropdown
       } else if (activeTab === 'salaries') {
-        await payrollApi.assignSalary(formData)
+        if (editingItem) await payrollApi.updateSalary(editingItem._id, formData)
+        else await payrollApi.assignSalary(formData)
       } else if (activeTab === 'payslips') {
         await payrollApi.generatePayslip(formData)
       } else if (activeTab === 'bonuses') {
@@ -133,9 +112,11 @@ export default function PayrollManagement() {
   const handleDelete = async (id) => {
     if (!confirm('Delete this item?')) return
     try {
-      await payrollApi.deleteStructure(id)
+      if (activeTab === 'structures') await payrollApi.deleteStructure(id)
+      else if (activeTab === 'salaries') await payrollApi.deleteSalary(id)
       toast.success('Deleted')
       fetchData()
+      fetchStats()
     } catch (err) { toast.error(err.message) }
   }
 
@@ -241,8 +222,8 @@ export default function PayrollManagement() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard icon={Users} label="Employees" value={stats.totalEmployees || 0} color="blue" />
         <StatCard icon={Wallet} label="Configured" value={stats.configuredSalaries || 0} color="green" />
-        <StatCard icon={FileText} label="Paid This Month" value={stats.currentMonth?.paid || 0} color="purple" />
-        <StatCard icon={DollarSign} label="Total Paid" value={formatCurrency(stats.currentMonth?.totalPaid)} color="emerald" />
+        <StatCard icon={TrendingUp} label="Monthly Budget" value={formatCurrency(stats.monthlyBudget)} color="purple" />
+        <StatCard icon={DollarSign} label="Paid This Month" value={formatCurrency(stats.currentMonth?.totalPaid)} color="emerald" />
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -279,18 +260,23 @@ export default function PayrollManagement() {
 
         <div className="p-4">
           {activeTab === 'structures' && <StructuresTable data={data} loading={loading} onEdit={(item) => { setEditingItem(item); setShowModal(true) }} onDelete={handleDelete} />}
-          {activeTab === 'salaries' && <SalariesTable data={data} loading={loading} />}
+          {activeTab === 'salaries' && <SalariesTable data={data} loading={loading} onEdit={(item) => { setEditingItem(item); setShowModal(true) }} onDelete={handleDelete} />}
           {activeTab === 'payslips' && <PayslipsTable data={data} loading={loading} onApprove={handleApprove} onMarkPaid={handleMarkPaid} onViewPdf={(p) => { setSelectedPayslip(p); setShowPdfModal(true) }} />}
           {activeTab === 'bonuses' && <BonusesTable data={data} loading={loading} onApprove={handleApprove} />}
           {activeTab === 'advances' && <AdvancesTable data={data} loading={loading} onApprove={handleApprove} />}
         </div>
 
-        {pagination.totalPages > 1 && (
-          <div className="p-4 border-t"><Pagination currentPage={pagination.page} totalPages={pagination.totalPages} onPageChange={(page) => setPagination(p => ({ ...p, page }))} /></div>
-        )}
+        <Pagination
+          currentPage={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.total}
+          itemsPerPage={8}
+          onPageChange={(page) => setPagination(p => ({ ...p, page }))}
+          itemName={activeTab}
+        />
       </div>
 
-      <Modal isOpen={showModal} onClose={() => { setShowModal(false); setEditingItem(null) }} onSave={handleSave} type={activeTab} item={editingItem} employees={employees} structures={structures} loadingEmployees={loadingEmployees} />
+      <Modal isOpen={showModal} onClose={() => { setShowModal(false); setEditingItem(null) }} onSave={handleSave} type={activeTab} item={editingItem} structures={structures} />
       <PayslipPDFModal isOpen={showPdfModal} onClose={() => { setShowPdfModal(false); setSelectedPayslip(null) }} payslip={selectedPayslip} />
     </div>
   )
@@ -326,9 +312,9 @@ function StructuresTable({ data, loading, onEdit, onDelete }) {
   )
 }
 
-function SalariesTable({ data, loading }) {
+function SalariesTable({ data, loading, onEdit, onDelete }) {
   return (
-    <DataTable columns={[{ header: 'Employee', key: 'emp' }, { header: 'Role', key: 'role' }, { header: 'Gross', key: 'gross' }, { header: 'Net', key: 'net' }, { header: 'Status', key: 'status' }]} data={data} loading={loading} emptyMessage="No salaries configured"
+    <DataTable columns={[{ header: 'Employee', key: 'emp' }, { header: 'Role', key: 'role' }, { header: 'Gross', key: 'gross' }, { header: 'Net', key: 'net' }, { header: 'Status', key: 'status' }, { header: 'Actions', key: 'actions' }]} data={data} loading={loading} emptyMessage="No salaries configured"
       renderRow={(item) => (
         <>
           <td className="px-4 py-3"><p className="font-medium">{item.employee?.profile?.firstName} {item.employee?.profile?.lastName}</p><p className="text-xs text-gray-500">{item.employee?.email}</p></td>
@@ -336,6 +322,10 @@ function SalariesTable({ data, loading }) {
           <td className="px-4 py-3">₹{(item.grossSalary || 0).toLocaleString()}</td>
           <td className="px-4 py-3 text-green-600 font-medium">₹{(item.netSalary || 0).toLocaleString()}</td>
           <td className="px-4 py-3"><span className={`px-2 py-1 rounded text-xs ${item.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100'}`}>{item.status}</span></td>
+          <td className="px-4 py-3 flex gap-1">
+            <button onClick={() => onEdit(item)} className="p-1.5 hover:bg-blue-50 rounded"><Edit2 className="w-4 h-4 text-gray-400" /></button>
+            <button onClick={() => onDelete(item._id)} className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4 text-gray-400" /></button>
+          </td>
         </>
       )}
     />
@@ -396,14 +386,24 @@ function AdvancesTable({ data, loading, onApprove }) {
   )
 }
 
-function Modal({ isOpen, onClose, onSave, type, item, employees, structures, loadingEmployees }) {
+function Modal({ isOpen, onClose, onSave, type, item, structures }) {
   const [formData, setFormData] = useState({})
 
   useEffect(() => {
     if (type === 'structures') {
       setFormData(item || { name: '', code: '', components: { basic: 0, hra: 0, da: 0, ta: 0, medical: 0, special: 0, other: 0 }, deductions: { pf: 0, esi: 0, tax: 0, other: 0 } })
     } else if (type === 'salaries') {
-      setFormData({ employeeId: '', salaryStructureId: '' })
+      if (item) {
+        setFormData({
+          employeeId: item.employee?._id || item.employee,
+          salaryStructureId: item.salaryStructure?._id || item.salaryStructure || '',
+          components: item.components || { basic: 0, hra: 0, da: 0, ta: 0, medical: 0, special: 0, other: 0 },
+          deductions: item.deductions || { pf: 0, esi: 0, tax: 0, other: 0 },
+          status: item.status || 'active'
+        })
+      } else {
+        setFormData({ employeeId: '', salaryStructureId: '', components: { basic: 0, hra: 0, da: 0, ta: 0, medical: 0, special: 0, other: 0 }, deductions: { pf: 0, esi: 0, tax: 0, other: 0 } })
+      }
     } else if (type === 'payslips') {
       setFormData({ employeeId: '', month: new Date().getMonth() + 1, year: new Date().getFullYear(), workingDays: { total: 30, present: 30 } })
     } else if (type === 'bonuses') {
@@ -447,13 +447,32 @@ function Modal({ isOpen, onClose, onSave, type, item, employees, structures, loa
           )}
           {type === 'salaries' && (
             <>
-              <div><label className="block text-sm font-medium mb-1">Employee *</label><UserSearchSelect users={employees} value={formData.employeeId} onChange={(v) => setFormData({ ...formData, employeeId: v })} loading={loadingEmployees} placeholder="Search employee..." /></div>
-              <div><label className="block text-sm font-medium mb-1">Salary Structure</label><select value={formData.salaryStructureId || ''} onChange={(e) => setFormData({ ...formData, salaryStructureId: e.target.value })} className="w-full px-3 py-2 border rounded-lg"><option value="">Custom</option>{structures.map(s => <option key={s._id} value={s._id}>{s.name} - ₹{s.netSalary?.toLocaleString()}</option>)}</select></div>
+              <div><label className="block text-sm font-medium mb-1">Employee *</label><ApiUserSearchSelect value={formData.employeeId} onChange={(v) => setFormData({ ...formData, employeeId: v })} filterRoles={['teacher', 'staff', 'coordinator']} placeholder="Search employee..." disabled={!!item} /></div>
+              <div><label className="block text-sm font-medium mb-1">Salary Structure (or set custom below)</label><select value={formData.salaryStructureId || ''} onChange={(e) => {
+                const structure = structures.find(s => s._id === e.target.value)
+                if (structure) {
+                  setFormData({ ...formData, salaryStructureId: e.target.value, components: { ...structure.components }, deductions: { ...structure.deductions } })
+                } else {
+                  setFormData({ ...formData, salaryStructureId: '' })
+                }
+              }} className="w-full px-3 py-2 border rounded-lg"><option value="">Custom</option>{structures.map(s => <option key={s._id} value={s._id}>{s.name} - ₹{s.netSalary?.toLocaleString()}</option>)}</select></div>
+              <h3 className="font-medium">Earnings</h3>
+              <div className="grid grid-cols-4 gap-2">
+                {formData.components && Object.keys(formData.components).map(key => (
+                  <div key={key}><label className="block text-xs capitalize">{key}</label><input type="number" value={formData.components[key] || 0} onChange={(e) => setFormData({ ...formData, components: { ...formData.components, [key]: Number(e.target.value) } })} className="w-full px-2 py-1 border rounded text-sm" /></div>
+                ))}
+              </div>
+              <h3 className="font-medium">Deductions</h3>
+              <div className="grid grid-cols-4 gap-2">
+                {formData.deductions && Object.keys(formData.deductions).map(key => (
+                  <div key={key}><label className="block text-xs uppercase">{key}</label><input type="number" value={formData.deductions[key] || 0} onChange={(e) => setFormData({ ...formData, deductions: { ...formData.deductions, [key]: Number(e.target.value) } })} className="w-full px-2 py-1 border rounded text-sm" /></div>
+                ))}
+              </div>
             </>
           )}
           {type === 'payslips' && (
             <>
-              <div><label className="block text-sm font-medium mb-1">Employee *</label><UserSearchSelect users={employees} value={formData.employeeId} onChange={(v) => setFormData({ ...formData, employeeId: v })} loading={loadingEmployees} placeholder="Search employee..." /></div>
+              <div><label className="block text-sm font-medium mb-1">Employee *</label><ApiUserSearchSelect value={formData.employeeId} onChange={(v) => setFormData({ ...formData, employeeId: v })} filterRoles={['teacher', 'staff', 'coordinator']} placeholder="Search employee..." /></div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm font-medium mb-1">Month</label><select value={formData.month} onChange={(e) => setFormData({ ...formData, month: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg">{MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}</select></div>
                 <div><label className="block text-sm font-medium mb-1">Year</label><select value={formData.year} onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg">{[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}</select></div>
@@ -462,7 +481,7 @@ function Modal({ isOpen, onClose, onSave, type, item, employees, structures, loa
           )}
           {type === 'bonuses' && (
             <>
-              <div><label className="block text-sm font-medium mb-1">Employee *</label><UserSearchSelect users={employees} value={formData.employee} onChange={(v) => setFormData({ ...formData, employee: v })} loading={loadingEmployees} placeholder="Search employee..." /></div>
+              <div><label className="block text-sm font-medium mb-1">Employee *</label><ApiUserSearchSelect value={formData.employee} onChange={(v) => setFormData({ ...formData, employee: v })} filterRoles={['teacher', 'staff', 'coordinator']} placeholder="Search employee..." /></div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm font-medium mb-1">Type</label><select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-3 py-2 border rounded-lg"><option value="performance">Performance</option><option value="festival">Festival</option><option value="annual">Annual</option><option value="special">Special</option></select></div>
                 <div><label className="block text-sm font-medium mb-1">Amount *</label><input type="number" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: parseInt(e.target.value) || 0 })} className="w-full px-3 py-2 border rounded-lg" /></div>
@@ -471,7 +490,7 @@ function Modal({ isOpen, onClose, onSave, type, item, employees, structures, loa
           )}
           {type === 'advances' && (
             <>
-              <div><label className="block text-sm font-medium mb-1">Employee *</label><UserSearchSelect users={employees} value={formData.employee} onChange={(v) => setFormData({ ...formData, employee: v })} loading={loadingEmployees} placeholder="Search employee..." /></div>
+              <div><label className="block text-sm font-medium mb-1">Employee *</label><ApiUserSearchSelect value={formData.employee} onChange={(v) => setFormData({ ...formData, employee: v })} filterRoles={['teacher', 'staff', 'coordinator']} placeholder="Search employee..." /></div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm font-medium mb-1">Type</label><select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-3 py-2 border rounded-lg"><option value="advance">Advance</option><option value="loan">Loan</option></select></div>
                 <div><label className="block text-sm font-medium mb-1">Amount *</label><input type="number" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: parseInt(e.target.value) || 0 })} className="w-full px-3 py-2 border rounded-lg" /></div>

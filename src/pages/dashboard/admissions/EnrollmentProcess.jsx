@@ -4,10 +4,12 @@ import { motion } from 'framer-motion'
 import { toast } from 'react-toastify'
 import {
   ArrowLeft, UserPlus, User, GraduationCap, CreditCard,
-  CheckCircle, AlertCircle, Hash, Mail, Phone, Lock, Eye, EyeOff
+  CheckCircle, AlertCircle, Hash, Mail, Phone, Lock, Eye, EyeOff, Loader2
 } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { admissionsApi, classesApi } from '../../../services/api'
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'
 
 export default function EnrollmentProcess() {
   const { id } = useParams()
@@ -19,9 +21,12 @@ export default function EnrollmentProcess() {
   const [sections, setSections] = useState([])
   const [showStudentPassword, setShowStudentPassword] = useState(false)
   const [showParentPassword, setShowParentPassword] = useState(false)
+  const [loadingRollNumber, setLoadingRollNumber] = useState(false)
+  const [loadingAdmissionNumber, setLoadingAdmissionNumber] = useState(false)
   const [enrollmentData, setEnrollmentData] = useState({
     sectionId: '',
     rollNumber: '',
+    admissionNumber: '',
     admissionFeeAmount: 0,
     admissionFeePaid: false,
     remarks: '',
@@ -34,6 +39,70 @@ export default function EnrollmentProcess() {
   useEffect(() => {
     fetchApplication()
   }, [id])
+
+  // Fetch next admission number when component loads
+  useEffect(() => {
+    const institutionId = user?.institution?._id || user?.institution
+    if (institutionId) {
+      fetchNextAdmissionNumber(institutionId)
+    }
+  }, [user?.institution])
+
+  // Fetch next roll number when section is selected
+  useEffect(() => {
+    if (enrollmentData.sectionId && application?.applyingForClass?._id) {
+      fetchNextRollNumber(application.applyingForClass._id, enrollmentData.sectionId)
+    }
+  }, [enrollmentData.sectionId, application?.applyingForClass?._id])
+
+  const fetchNextAdmissionNumber = async (institutionId) => {
+    try {
+      setLoadingAdmissionNumber(true)
+      const token = localStorage.getItem('meridian_token')
+      const response = await fetch(`${API_BASE_URL}/users/id-generator/next?institutionId=${institutionId}&idType=admissionNumber`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await response.json()
+      const admissionNumber = data.data?.id || data.data?.admissionNumber
+      if (data.success && admissionNumber) {
+        setEnrollmentData(prev => ({
+          ...prev,
+          admissionNumber: admissionNumber
+        }))
+      }
+    } catch (error) {
+      console.error('Failed to fetch next admission number:', error)
+    } finally {
+      setLoadingAdmissionNumber(false)
+    }
+  }
+
+  const fetchNextRollNumber = async (classId, sectionId) => {
+    try {
+      setLoadingRollNumber(true)
+      const token = localStorage.getItem('meridian_token')
+      const institutionId = user?.institution?._id || user?.institution
+      let url = `${API_BASE_URL}/users/id-generator/next?institutionId=${institutionId}&idType=rollNumber&classId=${classId}`
+      if (sectionId) {
+        url += `&sectionId=${sectionId}`
+      }
+      const response = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await response.json()
+      const rollNumber = data.data?.id || data.data?.rollNumber
+      if (data.success && rollNumber) {
+        setEnrollmentData(prev => ({
+          ...prev,
+          rollNumber: rollNumber
+        }))
+      }
+    } catch (error) {
+      console.error('Failed to fetch next roll number:', error)
+    } finally {
+      setLoadingRollNumber(false)
+    }
+  }
 
   const fetchApplication = async () => {
     try {
@@ -254,17 +323,42 @@ export default function EnrollmentProcess() {
                 </select>
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Admission Number</label>
+                <div className="relative">
+                  {loadingAdmissionNumber ? (
+                    <Loader2 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-indigo-500 animate-spin" />
+                  ) : (
+                    <Hash className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  )}
+                  <input
+                    type="text"
+                    value={enrollmentData.admissionNumber}
+                    onChange={(e) => setEnrollmentData(prev => ({ ...prev, admissionNumber: e.target.value }))}
+                    placeholder={loadingAdmissionNumber ? "Loading..." : "Auto-generated"}
+                    disabled={loadingAdmissionNumber}
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Auto-generated admission number</p>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Roll Number</label>
                 <div className="relative">
-                  <Hash className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  {loadingRollNumber ? (
+                    <Loader2 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-indigo-500 animate-spin" />
+                  ) : (
+                    <Hash className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  )}
                   <input
                     type="text"
                     value={enrollmentData.rollNumber}
                     onChange={(e) => setEnrollmentData(prev => ({ ...prev, rollNumber: e.target.value }))}
-                    placeholder="Enter roll number"
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    placeholder={loadingRollNumber ? "Loading..." : "Auto-generated on section select"}
+                    disabled={loadingRollNumber}
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
                   />
                 </div>
+                <p className="text-xs text-gray-500 mt-1">Auto-generated when you select a section</p>
               </div>
             </div>
           </motion.div>

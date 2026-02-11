@@ -7,9 +7,10 @@ export const login = createAsyncThunk(
   async (credentials, { rejectWithValue }) => {
     try {
       const response = await authApi.login(credentials)
-      localStorage.setItem('meridian_token', response.data.token)
-      localStorage.setItem('meridian_user', JSON.stringify(response.data.user))
-      return response.data
+      const { accessToken, user } = response.data
+      localStorage.setItem('meridian_token', accessToken)
+      localStorage.setItem('meridian_user', JSON.stringify(user))
+      return { token: accessToken, user }
     } catch (error) {
       return rejectWithValue(error.message || 'Login failed')
     }
@@ -21,9 +22,10 @@ export const register = createAsyncThunk(
   async (userData, { rejectWithValue }) => {
     try {
       const response = await authApi.register(userData)
-      localStorage.setItem('meridian_token', response.data.token)
-      localStorage.setItem('meridian_user', JSON.stringify(response.data.user))
-      return response.data
+      const { accessToken, user } = response.data
+      localStorage.setItem('meridian_token', accessToken)
+      localStorage.setItem('meridian_user', JSON.stringify(user))
+      return { token: accessToken, user }
     } catch (error) {
       return rejectWithValue(error.message || 'Registration failed')
     }
@@ -35,7 +37,10 @@ export const fetchCurrentUser = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await authApi.me()
-      return response.data
+      // response is { success, message, data: user }
+      const user = response.data
+      localStorage.setItem('meridian_user', JSON.stringify(user))
+      return user
     } catch (error) {
       return rejectWithValue(error.message || 'Failed to fetch user')
     }

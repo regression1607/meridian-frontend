@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { toast } from 'react-toastify'
 import { 
-  BookOpen, Plus, Edit, Trash2, Users, GraduationCap, Tag, Eye
+  BookOpen, Plus, Edit, Trash2, Users, GraduationCap, Tag, Eye, Search, X
 } from 'lucide-react'
 import { subjectsApi, classesApi, usersApi } from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
@@ -60,6 +60,7 @@ export default function SubjectsList() {
     name: '', code: '', type: 'core', description: '', credits: 1, classes: [], teachers: []
   })
   const [saving, setSaving] = useState(false)
+  const [teacherSearch, setTeacherSearch] = useState('')
 
   useEffect(() => {
     if (institutionId) {
@@ -157,6 +158,7 @@ export default function SubjectsList() {
 
   const resetForm = () => {
     setFormData({ name: '', code: '', type: 'core', description: '', credits: 1, classes: [], teachers: [] })
+    setTeacherSearch('')
   }
 
   const filteredSubjects = subjects.filter(s => 
@@ -397,34 +399,148 @@ export default function SubjectsList() {
                   rows="2"
                 />
               </div>
+              {/* Assign to Classes - Checkbox style */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Assign to Classes</label>
-                <select
-                  multiple
-                  value={formData.classes}
-                  onChange={(e) => setFormData({ ...formData, classes: Array.from(e.target.selectedOptions, o => o.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 h-24"
-                >
-                  {classes.map(c => (
-                    <option key={c._id} value={c._id}>{c.name}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Assign to Classes</label>
+                {formData.classes.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {formData.classes.map(classId => {
+                      const cls = classes.find(c => c._id === classId)
+                      return cls ? (
+                        <span
+                          key={classId}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-primary-100 text-primary-700 rounded-full text-xs"
+                        >
+                          {cls.name}
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, classes: formData.classes.filter(id => id !== classId) })}
+                            className="hover:text-primary-900"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ) : null
+                    })}
+                  </div>
+                )}
+                <div className="border border-gray-300 rounded-lg max-h-32 overflow-y-auto">
+                  {classes.map(cls => {
+                    const isSelected = formData.classes.includes(cls._id)
+                    return (
+                      <label
+                        key={cls._id}
+                        className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${isSelected ? 'bg-primary-50' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {
+                            setFormData({
+                              ...formData,
+                              classes: isSelected
+                                ? formData.classes.filter(id => id !== cls._id)
+                                : [...formData.classes, cls._id]
+                            })
+                          }}
+                          className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                        />
+                        <span className="text-sm text-gray-700">{cls.name}</span>
+                      </label>
+                    )
+                  })}
+                </div>
               </div>
+
+              {/* Assign Teachers - Searchable selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Assign Teachers</label>
-                <select
-                  multiple
-                  value={formData.teachers}
-                  onChange={(e) => setFormData({ ...formData, teachers: Array.from(e.target.selectedOptions, o => o.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 h-24"
-                >
-                  {teachers.map(t => (
-                    <option key={t._id} value={t._id}>
-                      {t.profile?.firstName} {t.profile?.lastName}
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Assign Teachers</label>
+                
+                {/* Search box */}
+                <div className="relative mb-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={teacherSearch}
+                    onChange={(e) => setTeacherSearch(e.target.value)}
+                    placeholder="Search teachers..."
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                  />
+                </div>
+
+                {/* Selected teachers badges */}
+                {formData.teachers.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {formData.teachers.map(teacherId => {
+                      const teacher = teachers.find(t => t._id === teacherId)
+                      return teacher ? (
+                        <span
+                          key={teacherId}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs"
+                        >
+                          {teacher.profile?.firstName} {teacher.profile?.lastName}
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, teachers: formData.teachers.filter(id => id !== teacherId) })}
+                            className="hover:text-blue-900"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ) : null
+                    })}
+                  </div>
+                )}
+
+                {/* Teacher list */}
+                <div className="border border-gray-300 rounded-lg max-h-40 overflow-y-auto">
+                  {teachers
+                    .filter(t => {
+                      if (!teacherSearch) return true
+                      const name = `${t.profile?.firstName} ${t.profile?.lastName}`.toLowerCase()
+                      return name.includes(teacherSearch.toLowerCase())
+                    })
+                    .map(teacher => {
+                      const isSelected = formData.teachers.includes(teacher._id)
+                      return (
+                        <label
+                          key={teacher._id}
+                          className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${isSelected ? 'bg-blue-50' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {
+                              setFormData({
+                                ...formData,
+                                teachers: isSelected
+                                  ? formData.teachers.filter(id => id !== teacher._id)
+                                  : [...formData.teachers, teacher._id]
+                              })
+                            }}
+                            className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                          />
+                          <div className="flex-1">
+                            <span className="text-sm text-gray-900">
+                              {teacher.profile?.firstName} {teacher.profile?.lastName}
+                            </span>
+                            {teacher.email && (
+                              <span className="text-xs text-gray-500 ml-2">{teacher.email}</span>
+                            )}
+                          </div>
+                        </label>
+                      )
+                    })}
+                  {teachers.filter(t => {
+                    if (!teacherSearch) return true
+                    const name = `${t.profile?.firstName} ${t.profile?.lastName}`.toLowerCase()
+                    return name.includes(teacherSearch.toLowerCase())
+                  }).length === 0 && (
+                    <div className="px-3 py-4 text-sm text-gray-500 text-center">
+                      {teacherSearch ? 'No teachers match your search' : 'No teachers available'}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex gap-3 pt-4">
                 <button

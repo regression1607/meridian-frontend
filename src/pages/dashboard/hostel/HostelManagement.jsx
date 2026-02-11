@@ -5,11 +5,11 @@ import {
   Building2, DoorOpen, Users, UtensilsCrossed, UserCheck, MessageSquare,
   Plus, Search, Edit2, Trash2, Eye, X, Phone, MapPin, User
 } from 'lucide-react'
-import { hostelApi, usersApi } from '../../../services/api'
+import { hostelApi } from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
 import DataTable from '../../../components/ui/DataTable'
 import Pagination from '../../../components/ui/Pagination'
-import { UserSearchSelect } from '../../../components/ui/SearchableSelect'
+import { ApiUserSearchSelect } from '../../../components/ui/SearchableSelect'
 
 const TABS = [
   { id: 'blocks', label: 'Blocks', icon: Building2 },
@@ -54,8 +54,6 @@ export default function HostelManagement() {
   const [blocks, setBlocks] = useState([])
   const [rooms, setRooms] = useState([])
   const [allocations, setAllocations] = useState([])
-  const [students, setStudents] = useState([])
-  const [loadingStudents, setLoadingStudents] = useState(false)
   
   // Pagination
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 })
@@ -77,7 +75,6 @@ export default function HostelManagement() {
     else if (activeTab === 'rooms') fetchRooms()
     else if (activeTab === 'allocations') {
       fetchAllocations()
-      loadStudents()
     }
   }, [activeTab, pagination.page, searchTerm])
 
@@ -93,7 +90,7 @@ export default function HostelManagement() {
   const fetchBlocks = async () => {
     setLoading(true)
     try {
-      const res = await hostelApi.getBlocks({ page: pagination.page, limit: 10, search: searchTerm })
+      const res = await hostelApi.getBlocks({ page: pagination.page, limit: 8, search: searchTerm })
       if (res.success) {
         setBlocks(res.data || [])
         if (res.meta) setPagination(p => ({ ...p, ...res.meta }))
@@ -105,25 +102,25 @@ export default function HostelManagement() {
     }
   }
 
-  const fetchRooms = async () => {
-    setLoading(true)
+  const fetchRooms = async (forModal = false) => {
+    if (!forModal) setLoading(true)
     try {
-      const res = await hostelApi.getRooms({ page: pagination.page, limit: 10, search: searchTerm })
+      const res = await hostelApi.getRooms(forModal ? { limit: 100 } : { page: pagination.page, limit: 8, search: searchTerm })
       if (res.success) {
         setRooms(res.data || [])
-        if (res.meta) setPagination(p => ({ ...p, ...res.meta }))
+        if (!forModal && res.meta) setPagination(p => ({ ...p, ...res.meta }))
       }
     } catch (error) {
       console.error('Failed to fetch rooms:', error)
     } finally {
-      setLoading(false)
+      if (!forModal) setLoading(false)
     }
   }
 
   const fetchAllocations = async () => {
     setLoading(true)
     try {
-      const res = await hostelApi.getAllocations({ page: pagination.page, limit: 10, status: 'active' })
+      const res = await hostelApi.getAllocations({ page: pagination.page, limit: 8, status: 'active' })
       if (res.success) {
         setAllocations(res.data || [])
         if (res.meta) setPagination(p => ({ ...p, ...res.meta }))
@@ -132,20 +129,6 @@ export default function HostelManagement() {
       console.error('Failed to fetch allocations:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const loadStudents = async () => {
-    setLoadingStudents(true)
-    try {
-      const res = await usersApi.getAll({ role: 'student', limit: 100 })
-      if (res.success && Array.isArray(res.data)) {
-        setStudents(res.data)
-      }
-    } catch (error) {
-      console.error('Failed to load students:', error)
-    } finally {
-      setLoadingStudents(false)
     }
   }
 
@@ -269,7 +252,7 @@ export default function HostelManagement() {
         )}
         {activeTab === 'allocations' && (
           <button
-            onClick={() => setShowAllocationModal(true)}
+            onClick={() => { fetchRooms(true); setShowAllocationModal(true) }}
             className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
           >
             <Plus className="w-4 h-4" />
@@ -354,15 +337,14 @@ export default function HostelManagement() {
         </div>
 
         {/* Pagination */}
-        {pagination.totalPages > 1 && (
-          <div className="p-4 border-t border-gray-200">
-            <Pagination
-              currentPage={pagination.page}
-              totalPages={pagination.totalPages}
-              onPageChange={(page) => setPagination(p => ({ ...p, page }))}
-            />
-          </div>
-        )}
+        <Pagination
+          currentPage={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.total}
+          itemsPerPage={8}
+          onPageChange={(page) => setPagination(p => ({ ...p, page }))}
+          itemName={activeTab}
+        />
       </div>
 
       {/* Modals */}
@@ -384,8 +366,6 @@ export default function HostelManagement() {
         onClose={() => setShowAllocationModal(false)}
         onSave={handleAllocateRoom}
         rooms={rooms}
-        students={students}
-        loadingStudents={loadingStudents}
       />
     </div>
   )
@@ -842,17 +822,29 @@ function RoomModal({ isOpen, onClose, onSave, room, blocks }) {
 }
 
 // Allocation Modal
-function AllocationModal({ isOpen, onClose, onSave, rooms, students, loadingStudents }) {
+function AllocationModal({ isOpen, onClose, onSave, rooms }) {
   const [formData, setFormData] = useState({
     roomId: '',
     studentId: '',
     bedNumber: 1,
     academicYear: `${new Date().getFullYear()}-${(new Date().getFullYear() + 1).toString().slice(-2)}`,
-    securityDeposit: 0
+    securityDeposit: 0,
+    monthlyRent: 0,
+    remarks: ''
   })
 
   const availableRooms = rooms.filter(r => r.occupiedBeds < r.capacity)
   const selectedRoom = rooms.find(r => r._id === formData.roomId)
+
+  // Auto-populate monthly rent when room is selected
+  const handleRoomChange = (roomId) => {
+    const room = rooms.find(r => r._id === roomId)
+    setFormData({ 
+      ...formData, 
+      roomId, 
+      monthlyRent: room?.monthlyRent || 0 
+    })
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -881,11 +873,10 @@ function AllocationModal({ isOpen, onClose, onSave, rooms, students, loadingStud
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Student *</label>
-            <UserSearchSelect
-              users={students}
+            <ApiUserSearchSelect
               value={formData.studentId}
               onChange={(value) => setFormData({ ...formData, studentId: value })}
-              loading={loadingStudents}
+              filterRoles={['student']}
               placeholder="Search student..."
             />
           </div>
@@ -893,13 +884,13 @@ function AllocationModal({ isOpen, onClose, onSave, rooms, students, loadingStud
             <label className="block text-sm font-medium text-gray-700 mb-1">Room *</label>
             <select
               value={formData.roomId}
-              onChange={(e) => setFormData({ ...formData, roomId: e.target.value })}
+              onChange={(e) => handleRoomChange(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
             >
               <option value="">Select Room</option>
               {availableRooms.map(r => (
                 <option key={r._id} value={r._id}>
-                  {r.block?.name} - Room {r.roomNumber} ({r.capacity - r.occupiedBeds} beds free)
+                  {r.block?.name} - Room {r.roomNumber} ({r.capacity - r.occupiedBeds} beds free) - ₹{r.monthlyRent}/month
                 </option>
               ))}
             </select>
@@ -917,6 +908,27 @@ function AllocationModal({ isOpen, onClose, onSave, rooms, students, loadingStud
               />
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Academic Year</label>
+              <input
+                type="text"
+                value={formData.academicYear}
+                onChange={(e) => setFormData({ ...formData, academicYear: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Rent (₹)</label>
+              <input
+                type="number"
+                value={formData.monthlyRent}
+                onChange={(e) => setFormData({ ...formData, monthlyRent: parseInt(e.target.value) || 0 })}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">Auto-filled from room</p>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Security Deposit (₹)</label>
               <input
                 type="number"
@@ -926,13 +938,33 @@ function AllocationModal({ isOpen, onClose, onSave, rooms, students, loadingStud
               />
             </div>
           </div>
+          {selectedRoom && (
+            <div className="bg-blue-50 p-3 rounded-lg">
+              <p className="text-sm font-medium text-blue-800">Fee Summary</p>
+              <div className="mt-2 text-sm text-blue-700 space-y-1">
+                <div className="flex justify-between">
+                  <span>Monthly Rent:</span>
+                  <span>₹{formData.monthlyRent}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Security Deposit:</span>
+                  <span>₹{formData.securityDeposit}</span>
+                </div>
+                <div className="flex justify-between font-medium border-t border-blue-200 pt-1 mt-1">
+                  <span>Total Initial Payment:</span>
+                  <span>₹{formData.monthlyRent + formData.securityDeposit}</span>
+                </div>
+              </div>
+            </div>
+          )}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Academic Year</label>
-            <input
-              type="text"
-              value={formData.academicYear}
-              onChange={(e) => setFormData({ ...formData, academicYear: e.target.value })}
+            <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+            <textarea
+              value={formData.remarks}
+              onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+              rows={2}
+              placeholder="Any additional notes..."
             />
           </div>
           <div className="flex justify-end gap-3 pt-4">

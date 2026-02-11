@@ -29,7 +29,7 @@ export default function BooksList() {
   const [books, setBooks] = useState([])
   const [subjects, setSubjects] = useState([])
   const [stats, setStats] = useState({})
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0 })
+  const [pagination, setPagination] = useState({ page: 1, limit: 8, total: 0, totalPages: 1 })
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('')
@@ -293,15 +293,14 @@ export default function BooksList() {
           )}
         />
         
-        {pagination.totalPages > 1 && (
-          <div className="p-4 border-t border-gray-200">
-            <Pagination
-              currentPage={pagination.page}
-              totalPages={pagination.totalPages || pagination.pages || 1}
-              onPageChange={(page) => setPagination(p => ({ ...p, page }))}
-            />
-          </div>
-        )}
+        <Pagination
+          currentPage={pagination.page}
+          totalPages={pagination.totalPages || pagination.pages || 1}
+          totalItems={pagination.total}
+          itemsPerPage={pagination.limit}
+          onPageChange={(page) => setPagination(p => ({ ...p, page }))}
+          itemName="books"
+        />
       </div>
 
       {/* Add/Edit Modal */}

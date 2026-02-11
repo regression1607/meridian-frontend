@@ -4,9 +4,9 @@ import { motion } from 'framer-motion'
 import { toast } from 'react-toastify'
 import {
   Calendar, Plus, Search, Edit2, Trash2, X, ChevronLeft, ChevronRight,
-  Users, MapPin, Clock, Tag, Eye, Download
+  Users, MapPin, Clock, Tag, Eye, Download, Bell, Send
 } from 'lucide-react'
-import { eventsApi } from '../../../services/api'
+import { eventsApi, notificationsApi } from '../../../services/api'
 import DataTable from '../../../components/ui/DataTable'
 import Pagination from '../../../components/ui/Pagination'
 import { generateCSV, downloadCSV, CSV_TEMPLATES } from '../../../utils/csvUtils'
@@ -36,6 +36,8 @@ export default function EventsManagement() {
   const [showModal, setShowModal] = useState(false)
   const [editingEvent, setEditingEvent] = useState(null)
   const [viewingEvent, setViewingEvent] = useState(null)
+  const [showAlertModal, setShowAlertModal] = useState(false)
+  const [alertEvent, setAlertEvent] = useState(null)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [calendarEvents, setCalendarEvents] = useState([])
 
@@ -58,7 +60,7 @@ export default function EventsManagement() {
   const fetchEvents = async () => {
     setLoading(true)
     try {
-      const res = await eventsApi.getAll({ page: pagination.page, limit: 10, search: searchTerm, type: typeFilter || undefined })
+      const res = await eventsApi.getAll({ page: pagination.page, limit: 8, search: searchTerm, type: typeFilter || undefined })
       if (res.success) {
         setEvents(res.data || [])
         if (res.meta) setPagination(p => ({ ...p, ...res.meta }))
@@ -199,14 +201,15 @@ export default function EventsManagement() {
                   <td className="px-4 py-3 text-sm text-gray-600">{item.location || '-'}</td>
                   <td className="px-4 py-3"><span className={`px-2 py-1 rounded text-xs font-medium ${item.status === 'published' ? 'bg-green-100 text-green-700' : item.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>{item.status}</span></td>
                   <td className="px-4 py-3 flex gap-1">
-                    <button onClick={() => setViewingEvent(item)} className="p-1.5 hover:bg-blue-50 rounded"><Eye className="w-4 h-4 text-gray-400" /></button>
-                    <button onClick={() => { setEditingEvent(item); setShowModal(true) }} className="p-1.5 hover:bg-blue-50 rounded"><Edit2 className="w-4 h-4 text-gray-400" /></button>
-                    <button onClick={() => handleDelete(item._id)} className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4 text-gray-400" /></button>
+                    <button onClick={() => setViewingEvent(item)} className="p-1.5 hover:bg-blue-50 rounded" title="View"><Eye className="w-4 h-4 text-gray-400" /></button>
+                    <button onClick={() => { setAlertEvent(item); setShowAlertModal(true) }} className="p-1.5 hover:bg-green-50 rounded" title="Send Alert"><Bell className="w-4 h-4 text-gray-400" /></button>
+                    <button onClick={() => { setEditingEvent(item); setShowModal(true) }} className="p-1.5 hover:bg-blue-50 rounded" title="Edit"><Edit2 className="w-4 h-4 text-gray-400" /></button>
+                    <button onClick={() => handleDelete(item._id)} className="p-1.5 hover:bg-red-50 rounded" title="Delete"><Trash2 className="w-4 h-4 text-gray-400" /></button>
                   </td>
                 </>
               )}
             />
-            {pagination.totalPages > 1 && <div className="mt-4"><Pagination currentPage={pagination.page} totalPages={pagination.totalPages} onPageChange={(page) => setPagination(p => ({ ...p, page }))} /></div>}
+            <div className="mt-4"><Pagination currentPage={pagination.page} totalPages={pagination.totalPages} totalItems={pagination.total} itemsPerPage={8} onPageChange={(page) => setPagination(p => ({ ...p, page }))} itemName="events" /></div>
           </div>
         ) : (
           <CalendarView currentDate={currentDate} setCurrentDate={setCurrentDate} events={calendarEvents} onEventClick={setViewingEvent} getTypeColor={getTypeColor} />
@@ -215,6 +218,7 @@ export default function EventsManagement() {
 
       <EventModal isOpen={showModal} onClose={() => { setShowModal(false); setEditingEvent(null) }} onSave={handleSave} event={editingEvent} />
       <EventViewModal isOpen={!!viewingEvent} onClose={() => setViewingEvent(null)} event={viewingEvent} getTypeColor={getTypeColor} />
+      <SendAlertModal isOpen={showAlertModal} onClose={() => { setShowAlertModal(false); setAlertEvent(null) }} event={alertEvent} />
     </div>
   )
 }
@@ -371,6 +375,172 @@ function EventViewModal({ isOpen, onClose, event, getTypeColor }) {
           <div className="flex items-center gap-2">
             <span className={`px-2 py-1 rounded text-xs font-medium ${event.status === 'published' ? 'bg-green-100 text-green-700' : event.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>{event.status}</span>
           </div>
+        </div>
+      </motion.div>
+    </div>,
+    document.body
+  )
+}
+
+const USER_ROLES = [
+  { value: 'student', label: 'Students', icon: '🎓', color: 'bg-blue-100 text-blue-700 border-blue-300' },
+  { value: 'teacher', label: 'Teachers', icon: '👨‍🏫', color: 'bg-purple-100 text-purple-700 border-purple-300' },
+  { value: 'parent', label: 'Parents', icon: '👪', color: 'bg-green-100 text-green-700 border-green-300' },
+  { value: 'staff', label: 'Staff', icon: '👷', color: 'bg-orange-100 text-orange-700 border-orange-300' },
+  { value: 'institution_admin', label: 'Admins', icon: '👔', color: 'bg-red-100 text-red-700 border-red-300' }
+]
+
+const DELIVERY_METHODS = [
+  { value: 'inapp', label: 'In-App Only', icon: '🔔', description: 'Show in notification bell' },
+  { value: 'email', label: 'Email Only', icon: '📧', description: 'Send to user emails' },
+  { value: 'both', label: 'Both', icon: '📨', description: 'In-app + Email' }
+]
+
+function SendAlertModal({ isOpen, onClose, event }) {
+  const [selectedRoles, setSelectedRoles] = useState([])
+  const [customMessage, setCustomMessage] = useState('')
+  const [deliveryMethod, setDeliveryMethod] = useState('inapp')
+  const [sending, setSending] = useState(false)
+
+  useEffect(() => {
+    if (isOpen && event) {
+      setSelectedRoles([])
+      setCustomMessage('')
+      setDeliveryMethod('inapp')
+    }
+  }, [isOpen, event])
+
+  const toggleRole = (role) => {
+    setSelectedRoles(prev => prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role])
+  }
+
+  const selectAll = () => {
+    if (selectedRoles.length === USER_ROLES.length) {
+      setSelectedRoles([])
+    } else {
+      setSelectedRoles(USER_ROLES.map(r => r.value))
+    }
+  }
+
+  const handleSend = async () => {
+    if (selectedRoles.length === 0) {
+      toast.error('Please select at least one user group')
+      return
+    }
+
+    setSending(true)
+    try {
+      const eventDate = new Date(event.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+      const message = customMessage || `Event Alert: ${event.title} on ${eventDate}${event.location ? ` at ${event.location}` : ''}`
+      
+      await notificationsApi.sendToRole({
+        title: `📅 ${event.title}`,
+        message,
+        type: 'event',
+        roles: selectedRoles,
+        deliveryMethod,
+        metadata: { eventId: event._id, eventType: event.type }
+      })
+      
+      toast.success(`Alert sent to ${selectedRoles.length} user group(s)`)
+      onClose()
+    } catch (err) {
+      toast.error(err.message || 'Failed to send alert')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  if (!isOpen || !event) return null
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4" style={{ margin: 0 }}>
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-t-xl">
+          <div className="flex items-center gap-2">
+            <Bell className="w-5 h-5" />
+            <h2 className="text-lg font-semibold">Send Event Alert</h2>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-white/20 rounded"><X className="w-5 h-5" /></button>
+        </div>
+        
+        <div className="p-4 space-y-4">
+          <div className="p-3 bg-gray-50 rounded-lg">
+            <p className="text-sm text-gray-500">Event</p>
+            <p className="font-medium text-gray-900">{event.title}</p>
+            <p className="text-sm text-gray-600">{new Date(event.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">Send alert to *</label>
+              <button onClick={selectAll} className="text-xs text-primary-600 hover:underline">
+                {selectedRoles.length === USER_ROLES.length ? 'Deselect All' : 'Select All'}
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {USER_ROLES.map(role => (
+                <button
+                  key={role.value}
+                  onClick={() => toggleRole(role.value)}
+                  className={`flex items-center gap-2 p-3 rounded-lg border-2 transition ${
+                    selectedRoles.includes(role.value) 
+                      ? `${role.color} border-current` 
+                      : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="text-lg">{role.icon}</span>
+                  <span className="font-medium text-sm">{role.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Method *</label>
+            <div className="grid grid-cols-3 gap-2">
+              {DELIVERY_METHODS.map(method => (
+                <button
+                  key={method.value}
+                  onClick={() => setDeliveryMethod(method.value)}
+                  className={`p-3 rounded-lg border-2 text-center transition ${
+                    deliveryMethod === method.value 
+                      ? 'border-primary-500 bg-primary-50 text-primary-700' 
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="text-xl block">{method.icon}</span>
+                  <span className="text-xs font-medium block mt-1">{method.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Custom Message (optional)</label>
+            <textarea
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
+              placeholder={`Default: Event Alert: ${event.title} on ${new Date(event.startDate).toLocaleDateString()}`}
+              className="w-full px-3 py-2 border rounded-lg text-sm"
+              rows={3}
+            />
+          </div>
+        </div>
+
+        <div className="p-4 border-t bg-gray-50 rounded-b-xl flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 border rounded-lg hover:bg-gray-100">Cancel</button>
+          <button
+            onClick={handleSend}
+            disabled={sending || selectedRoles.length === 0}
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            {sending ? (
+              <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Sending...</>
+            ) : (
+              <><Send className="w-4 h-4" /> Send Alert</>
+            )}
+          </button>
         </div>
       </motion.div>
     </div>,

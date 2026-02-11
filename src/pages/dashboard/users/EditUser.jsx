@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { toast } from 'react-toastify'
-import { ArrowLeft, Save, X, User, Mail, Phone, MapPin, Shield, Building, GraduationCap, Plus, Calendar } from 'lucide-react'
+import { ArrowLeft, Save, X, User, Mail, Phone, MapPin, Shield, Building, GraduationCap, Plus, Calendar, Users, Search } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { ButtonLoader, PageLoader } from '../../../components/ui/Loading'
 
@@ -28,6 +28,9 @@ export default function EditUser() {
   const [loadingClasses, setLoadingClasses] = useState(false)
   const [selectedClassData, setSelectedClassData] = useState(null)
   const [userInstitutionId, setUserInstitutionId] = useState(null)
+  const [students, setStudents] = useState([])
+  const [loadingStudents, setLoadingStudents] = useState(false)
+  const [studentSearch, setStudentSearch] = useState('')
   
   const isPlatformAdmin = ['super_admin', 'admin'].includes(currentUser?.role)
   const availableRoles = ALL_ROLES.filter(role => {
@@ -66,6 +69,10 @@ export default function EditUser() {
       employeeId: '',
       department: '',
       designation: ''
+    },
+    parentProfile: {
+      relation: '',
+      children: []
     }
   })
 
@@ -89,6 +96,13 @@ export default function EditUser() {
       setSelectedClassData(null)
     }
   }, [formData.studentProfile.class, classes])
+
+  // Fetch students when role is parent
+  useEffect(() => {
+    if (userInstitutionId && formData.role === 'parent') {
+      fetchStudents(userInstitutionId)
+    }
+  }, [userInstitutionId, formData.role])
 
   const fetchUser = async () => {
     try {
@@ -141,6 +155,10 @@ export default function EditUser() {
             employeeId: user.staffData?.employeeId || '',
             department: user.staffData?.department || '',
             designation: user.staffData?.designation || ''
+          },
+          parentProfile: {
+            relation: user.parentData?.relation || '',
+            children: user.parentData?.children?.map(c => c._id || c) || []
           }
         })
       }
@@ -169,6 +187,48 @@ export default function EditUser() {
       setLoadingClasses(false)
     }
   }
+
+  const fetchStudents = async (institutionId) => {
+    try {
+      setLoadingStudents(true)
+      const token = localStorage.getItem('meridian_token')
+      const response = await fetch(`${API_BASE_URL}/users?role=student&limit=100`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await response.json()
+      if (data.success) {
+        setStudents(data.data || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch students:', error)
+    } finally {
+      setLoadingStudents(false)
+    }
+  }
+
+  const handleChildToggle = (studentId) => {
+    setFormData(prev => {
+      const currentChildren = prev.parentProfile.children || []
+      const isSelected = currentChildren.includes(studentId)
+      return {
+        ...prev,
+        parentProfile: {
+          ...prev.parentProfile,
+          children: isSelected
+            ? currentChildren.filter(id => id !== studentId)
+            : [...currentChildren, studentId]
+        }
+      }
+    })
+  }
+
+  const filteredStudents = students.filter(student => {
+    if (!studentSearch) return true
+    const fullName = `${student.profile?.firstName} ${student.profile?.lastName}`.toLowerCase()
+    const admissionNo = student.studentData?.admissionNumber?.toLowerCase() || ''
+    const searchLower = studentSearch.toLowerCase()
+    return fullName.includes(searchLower) || admissionNo.includes(searchLower)
+  })
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -229,6 +289,12 @@ export default function EditUser() {
           employeeId: formData.staffProfile.employeeId || undefined,
           department: formData.staffProfile.department || undefined,
           designation: formData.staffProfile.designation || undefined
+        }
+      }
+      if (formData.role === 'parent') {
+        body.parentProfile = {
+          relation: formData.parentProfile.relation || undefined,
+          children: formData.parentProfile.children || []
         }
       }
 
@@ -603,6 +669,124 @@ export default function EditUser() {
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                   placeholder="e.g., Office Assistant"
                 />
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Parent Information */}
+        {formData.role === 'parent' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm"
+          >
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Parent Information
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Relation</label>
+                <select
+                  name="parentProfile.relation"
+                  value={formData.parentProfile.relation}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">-- Select Relation --</option>
+                  <option value="father">Father</option>
+                  <option value="mother">Mother</option>
+                  <option value="guardian">Guardian</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Linked Children (Students)
+                </label>
+                
+                {/* Search box */}
+                <div className="relative mb-3">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={studentSearch}
+                    onChange={(e) => setStudentSearch(e.target.value)}
+                    placeholder="Search students by name or admission number..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+
+                {/* Selected children badges */}
+                {formData.parentProfile.children.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {formData.parentProfile.children.map(childId => {
+                      const student = students.find(s => s._id === childId)
+                      return student ? (
+                        <span
+                          key={childId}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm"
+                        >
+                          {student.profile?.firstName} {student.profile?.lastName}
+                          <button
+                            type="button"
+                            onClick={() => handleChildToggle(childId)}
+                            className="ml-1 hover:text-primary-900"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ) : null
+                    })}
+                  </div>
+                )}
+
+                {/* Student list */}
+                {loadingStudents ? (
+                  <div className="px-4 py-3 text-gray-500 text-sm">Loading students...</div>
+                ) : filteredStudents.length === 0 ? (
+                  <div className="px-4 py-3 text-gray-500 bg-gray-50 rounded-lg text-sm">
+                    {studentSearch ? 'No students match your search.' : 'No students found in this institution.'}
+                  </div>
+                ) : (
+                  <div className="border border-gray-200 rounded-lg max-h-60 overflow-y-auto">
+                    {filteredStudents.map(student => {
+                      const isSelected = formData.parentProfile.children.includes(student._id)
+                      return (
+                        <label
+                          key={student._id}
+                          className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${
+                            isSelected ? 'bg-primary-50' : ''
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleChildToggle(student._id)}
+                            className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900">
+                              {student.profile?.firstName} {student.profile?.lastName}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {student.studentData?.admissionNumber && (
+                                <span>Adm: {student.studentData.admissionNumber}</span>
+                              )}
+                              {student.studentData?.class?.name && (
+                                <span className="ml-2">Class: {student.studentData.class.name}</span>
+                              )}
+                            </div>
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 mt-2">
+                  Select students to link as children of this parent.
+                </p>
               </div>
             </div>
           </motion.div>

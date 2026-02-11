@@ -113,13 +113,13 @@ export default function DashboardHome() {
         birthdays: { birthdays: dashboardData?.todayBirthdays || [] },
         library: {
           totalBooks: libraryData?.totalBooks || 0,
-          issued: libraryData?.issuedBooks || libraryData?.issued || 0,
-          overdue: libraryData?.overdueBooks || libraryData?.overdue || 0
+          issued: libraryData?.issuedCount || libraryData?.issuedBooks || 0,
+          overdue: libraryData?.overdueCount || libraryData?.overdueBooks || 0
         },
         transport: {
-          active: transportData?.activeVehicles || transportData?.vehicles || 0,
-          routes: transportData?.totalRoutes || transportData?.routes || 0,
-          students: transportData?.studentsUsing || 0
+          active: transportData?.activeVehicles || 0,
+          routes: transportData?.totalRoutes || 0,
+          students: transportData?.activeAllocations || 0
         },
         homework: {
           pending: dashboardData?.homework?.pending || 0,
@@ -127,19 +127,19 @@ export default function DashboardHome() {
         },
         exams: { upcoming: dashboardData?.upcomingExams || [] },
         payroll: {
-          monthlyNet: payrollData?.currentMonth?.totalPaid || payrollData?.monthlyNet || 0,
-          employees: payrollData?.totalEmployees || payrollData?.configuredSalaries || 0,
-          pending: payrollData?.pendingPayslips || 0
+          monthlyNet: payrollData?.monthlyBudget || payrollData?.currentMonth?.totalPaid || 0,
+          employees: payrollData?.configuredSalaries || payrollData?.totalEmployees || 0,
+          pending: payrollData?.currentMonth?.generated || 0
         },
         hostel: {
-          occupancy: hostelData?.occupancyRate || hostelData?.occupancy || 0,
+          occupancy: hostelData?.totalCapacity ? Math.round((hostelData?.occupiedBeds || 0) / hostelData.totalCapacity * 100) : 0,
           occupied: hostelData?.occupiedBeds || 0,
-          total: hostelData?.totalBeds || hostelData?.totalCapacity || 0
+          total: hostelData?.totalCapacity || 0
         },
         admissions: {
-          applications: admissionsData?.totalApplications || admissionsData?.applications || 0,
-          enrolled: admissionsData?.enrolled || admissionsData?.approved || 0,
-          pending: admissionsData?.pending || admissionsData?.pendingReview || 0
+          applications: admissionsData?.total || admissionsData?.totalApplications || 0,
+          enrolled: admissionsData?.approved || admissionsData?.enrolled || 0,
+          pending: admissionsData?.pending || admissionsData?.underReview || 0
         },
         performance: { subjects: dashboardData?.subjectPerformance || [] }
       })

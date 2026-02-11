@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { examinationsApi, classesApi, subjectsApi, usersApi } from '../../../services/api'
 import { toast } from 'react-toastify'
+import Pagination from '../../../components/ui/Pagination'
 
 const examTypes = [
   { value: 'unit_test', label: 'Unit Test' },
@@ -41,11 +42,16 @@ export default function ExamManagement() {
   const [editingExam, setEditingExam] = useState(null)
   const [saving, setSaving] = useState(false)
   const [filters, setFilters] = useState({ class: '', examType: '', status: '', search: '' })
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 })
+  const [pagination, setPagination] = useState({ page: 1, limit: 8, total: 0, totalPages: 1 })
 
   useEffect(() => {
     fetchData()
-  }, [filters, pagination.page])
+  }, [filters.class, filters.examType, filters.status, pagination.page])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }, [filters.class, filters.examType, filters.status])
 
   const fetchData = async () => {
     try {
@@ -245,6 +251,16 @@ export default function ExamManagement() {
             </table>
           </div>
         )}
+
+        {/* Pagination */}
+        <Pagination
+          currentPage={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.total}
+          itemsPerPage={pagination.limit}
+          onPageChange={(page) => setPagination(prev => ({ ...prev, page }))}
+          itemName="exams"
+        />
       </div>
 
       {/* Modals */}

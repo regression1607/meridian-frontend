@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { notificationsApi } from '../../services/api'
 import { toast } from 'react-toastify'
+import Pagination from '../../components/ui/Pagination'
 
 const typeIcons = {
   assignment_submitted: BookOpen,
@@ -16,6 +17,7 @@ const typeIcons = {
   exam_scheduled: Calendar,
   exam_result: FileText,
   attendance_alert: AlertCircle,
+  event: Calendar,
   event_reminder: Calendar,
   announcement: Info,
   meeting: Users,
@@ -25,6 +27,7 @@ const typeIcons = {
   leave_approved: Check,
   leave_rejected: AlertCircle,
   admission: Users,
+  alert: AlertCircle,
   general: Bell
 }
 
@@ -36,18 +39,34 @@ const typeColors = {
   exam_scheduled: 'bg-purple-100 text-purple-600',
   exam_result: 'bg-indigo-100 text-indigo-600',
   attendance_alert: 'bg-red-100 text-red-600',
+  event: 'bg-pink-100 text-pink-600',
   event_reminder: 'bg-pink-100 text-pink-600',
   announcement: 'bg-yellow-100 text-yellow-600',
   meeting: 'bg-cyan-100 text-cyan-600',
   message: 'bg-blue-100 text-blue-600',
   report_card: 'bg-emerald-100 text-emerald-600',
+  alert: 'bg-red-100 text-red-600',
   general: 'bg-gray-100 text-gray-600'
 }
+
+const NOTIFICATION_TYPES = [
+  { value: '', label: 'All Types' },
+  { value: 'event', label: 'Event' },
+  { value: 'announcement', label: 'Announcement' },
+  { value: 'fee_reminder', label: 'Fee Reminder' },
+  { value: 'fee_paid', label: 'Fee Paid' },
+  { value: 'exam_scheduled', label: 'Exam Scheduled' },
+  { value: 'exam_result', label: 'Exam Result' },
+  { value: 'attendance_alert', label: 'Attendance' },
+  { value: 'alert', label: 'Alert' },
+  { value: 'general', label: 'General' }
+]
 
 export default function Notifications() {
   const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all') // all, unread, read
+  const [typeFilter, setTypeFilter] = useState('')
   const [search, setSearch] = useState('')
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 })
   const [unreadCount, setUnreadCount] = useState(0)
@@ -116,6 +135,7 @@ export default function Notifications() {
   }
 
   const filteredNotifications = notifications.filter(n => {
+    if (typeFilter && n.type !== typeFilter) return false
     if (search) {
       return n.title.toLowerCase().includes(search.toLowerCase()) ||
              n.message?.toLowerCase().includes(search.toLowerCase())
@@ -169,13 +189,21 @@ export default function Notifications() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-400" />
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+            >
+              {NOTIFICATION_TYPES.map(t => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-lg"
+              className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
             >
-              <option value="all">All Notifications</option>
+              <option value="all">All Status</option>
               <option value="unread">Unread Only</option>
             </select>
           </div>
@@ -252,29 +280,16 @@ export default function Notifications() {
         )}
 
         {/* Pagination */}
-        {pagination.totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
-            <p className="text-sm text-gray-500">
-              Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
-                disabled={pagination.page === 1}
-                className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
-                disabled={pagination.page === pagination.totalPages}
-                className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
+        <div className="p-4 border-t border-gray-100">
+          <Pagination
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.total}
+            itemsPerPage={20}
+            onPageChange={(page) => setPagination(p => ({ ...p, page }))}
+            itemName="notifications"
+          />
+        </div>
       </div>
     </div>
   )

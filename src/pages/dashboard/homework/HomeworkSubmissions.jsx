@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { toast } from 'react-toastify'
 import {
-  BookOpen, Search, Filter, Calendar, Clock,
-  CheckCircle, AlertCircle, Eye, Award, User,
-  ChevronLeft, ChevronRight, FileText, XCircle, Download
+  Search, Clock, CheckCircle, AlertCircle, Eye, Award,
+  FileText, Download
 } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { TableSkeleton } from '../../../components/ui/Loading'
+import Pagination from '../../../components/ui/Pagination'
 import { homeworkApi, classesApi, subjectsApi, institutionsApi } from '../../../services/api'
 import { generateCSV, downloadCSV, CSV_TEMPLATES } from '../../../utils/csvUtils'
 
@@ -28,7 +28,7 @@ export default function HomeworkSubmissions() {
   const [allSubmissions, setAllSubmissions] = useState([])
   const [classes, setClasses] = useState([])
   const [subjects, setSubjects] = useState([])
-  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 0 })
+  const [pagination, setPagination] = useState({ page: 1, limit: 8, total: 0, pages: 0 })
   const [filters, setFilters] = useState({
     classId: '',
     subjectId: '',
@@ -64,6 +64,11 @@ export default function HomeworkSubmissions() {
       fetchHomeworkWithSubmissions()
     }
   }, [institutionId, filters.classId, filters.subjectId])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }, [filters.classId, filters.subjectId, filters.status, filters.search])
 
   const fetchClasses = async () => {
     try {
@@ -432,34 +437,14 @@ export default function HomeworkSubmissions() {
         )}
 
         {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-            <p className="text-sm text-gray-600">
-              Showing <span className="font-medium">{(pagination.page - 1) * pagination.limit + 1}</span> to{' '}
-              <span className="font-medium">{Math.min(pagination.page * pagination.limit, totalFiltered)}</span> of{' '}
-              <span className="font-medium">{totalFiltered}</span> submissions
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                disabled={pagination.page === 1}
-                className="p-2 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-sm text-gray-600">
-                Page {pagination.page} of {totalPages}
-              </span>
-              <button
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                disabled={pagination.page === totalPages}
-                className="p-2 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={pagination.page}
+          totalPages={totalPages}
+          totalItems={totalFiltered}
+          itemsPerPage={pagination.limit}
+          onPageChange={(page) => setPagination(prev => ({ ...prev, page }))}
+          itemName="submissions"
+        />
       </motion.div>
     </div>
   )

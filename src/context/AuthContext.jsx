@@ -64,7 +64,8 @@ export function AuthProvider({ children }) {
       avatar: apiUser.profile?.avatar,
       phone: apiUser.profile?.phone,
       isEmailVerified: apiUser.isEmailVerified,
-      mustChangePassword: apiUser.mustChangePassword
+      mustChangePassword: apiUser.mustChangePassword,
+      profile: apiUser.profile // Include full profile for avatar access
     }
   }
 

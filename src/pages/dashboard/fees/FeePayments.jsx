@@ -7,11 +7,13 @@ import {
   CreditCard, DollarSign, AlertCircle, CheckCircle, 
   Search, Filter, Download, Plus, Receipt, X, User,
   ChevronLeft, ChevronRight, Settings, Users, Eye, FileText,
-  Calendar, Hash, Banknote, Percent, Upload
+  Calendar, Hash, Banknote, Percent, Upload, Mail, Bell, Clock
 } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { TableSkeleton } from '../../../components/ui/Loading'
+import Pagination from '../../../components/ui/Pagination'
 import { feesApi, usersApi, classesApi } from '../../../services/api'
+import { ApiUserSearchSelect } from '../../../components/ui/SearchableSelect'
 import { generateCSV, downloadCSV, CSV_TEMPLATES } from '../../../utils/csvUtils'
 
 const STATUS_COLORS = {
@@ -34,9 +36,14 @@ export default function FeePayments() {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 0 })
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [pagination, setPagination] = useState({ page: 1, limit: 8, total: 0, pages: 0 })
+  const [updatingStatus, setUpdatingStatus] = useState(null)
+  const [generating, setGenerating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [paymentForm, setPaymentForm] = useState({
+    classId: '',
     studentId: '',
     feeStructureId: '',
     amount: '',
@@ -50,16 +57,25 @@ export default function FeePayments() {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [downloadingInvoice, setDownloadingInvoice] = useState(null)
   const [exporting, setExporting] = useState(false)
+  const [sendingAlert, setSendingAlert] = useState(null)
+  const [studentDues, setStudentDues] = useState(null)
+  const [loadingDues, setLoadingDues] = useState(false)
+  const [selectedDues, setSelectedDues] = useState({ transport: false, hostel: false, libraryFines: [] })
 
   useEffect(() => {
     fetchFeeStats()
     fetchPayments()
     fetchFeeStructures()
-  }, [statusFilter, pagination.page])
+  }, [statusFilter, pagination.page, selectedMonth, selectedYear])
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }, [statusFilter, selectedMonth, selectedYear])
 
   const fetchFeeStats = async () => {
     try {
-      const response = await feesApi.getStats()
+      const response = await feesApi.getStats({ month: selectedMonth, year: selectedYear })
       if (response.success) setStats(response.data)
     } catch (error) {
       console.error('Failed to fetch fee stats:', error)
@@ -71,6 +87,8 @@ export default function FeePayments() {
       setLoading(true)
       const params = {
         ...(statusFilter !== 'all' && { status: statusFilter }),
+        month: selectedMonth,
+        year: selectedYear,
         page: pagination.page,
         limit: pagination.limit
       }
@@ -115,9 +133,36 @@ export default function FeePayments() {
     }
   }
 
+  const fetchStudentDues = async (studentId) => {
+    if (!studentId) {
+      setStudentDues(null)
+      setSelectedDues({ transport: false, hostel: false, libraryFines: [] })
+      return
+    }
+    try {
+      setLoadingDues(true)
+      const response = await feesApi.getStudentDues(studentId)
+      if (response.success) {
+        setStudentDues(response.data)
+        setSelectedDues({ transport: false, hostel: false, libraryFines: [] })
+      }
+    } catch (error) {
+      console.error('Failed to fetch student dues:', error)
+      setStudentDues(null)
+    } finally {
+      setLoadingDues(false)
+    }
+  }
+
+  const handleStudentChange = (studentId) => {
+    setPaymentForm(prev => ({ ...prev, studentId }))
+    fetchStudentDues(studentId)
+  }
+
   const openPaymentModal = () => {
     fetchClasses()
     setPaymentForm({
+      classId: '',
       studentId: '',
       feeStructureId: '',
       amount: '',
@@ -128,6 +173,8 @@ export default function FeePayments() {
       remarks: ''
     })
     setStudents([])
+    setStudentDues(null)
+    setSelectedDues({ transport: false, hostel: false, libraryFines: [] })
     setShowPaymentModal(true)
   }
 
@@ -142,9 +189,35 @@ export default function FeePayments() {
 
   const handleRecordPayment = async (e) => {
     e.preventDefault()
-    if (!paymentForm.studentId || !paymentForm.amount) {
-      toast.error('Please select a student and enter amount')
+    
+    // Calculate total amount including selected dues
+    const feeAmount = parseFloat(paymentForm.amount) || 0
+    const transportAmount = selectedDues.transport && studentDues?.transport ? studentDues.transport.amount : 0
+    const hostelAmount = selectedDues.hostel && studentDues?.hostel ? studentDues.hostel.amount : 0
+    const libraryFinesAmount = studentDues?.libraryFines?.filter(f => selectedDues.libraryFines.includes(f._id)).reduce((sum, f) => sum + f.amount, 0) || 0
+    const totalAmount = feeAmount + transportAmount + hostelAmount + libraryFinesAmount
+
+    if (!paymentForm.studentId || totalAmount <= 0) {
+      toast.error('Please select a student and enter amount or select dues')
       return
+    }
+
+    // Build dues breakdown
+    const duesBreakdown = {
+      feeAmount,
+      transport: {
+        included: selectedDues.transport && !!studentDues?.transport,
+        amount: transportAmount,
+        description: studentDues?.transport?.description || ''
+      },
+      hostel: {
+        included: selectedDues.hostel && !!studentDues?.hostel,
+        amount: hostelAmount,
+        description: studentDues?.hostel?.description || ''
+      },
+      libraryFines: studentDues?.libraryFines
+        ?.filter(f => selectedDues.libraryFines.includes(f._id))
+        .map(f => ({ fineId: f._id, amount: f.amount, description: f.description })) || []
     }
 
     try {
@@ -152,12 +225,13 @@ export default function FeePayments() {
       const response = await feesApi.recordPayment({
         studentId: paymentForm.studentId,
         feeStructureId: paymentForm.feeStructureId || undefined,
-        amount: parseFloat(paymentForm.amount),
+        amount: totalAmount,
         paymentMethod: paymentForm.paymentMethod,
         transactionId: paymentForm.transactionId || undefined,
         discount: paymentForm.discount ? parseFloat(paymentForm.discount) : 0,
         discountReason: paymentForm.discountReason || undefined,
-        remarks: paymentForm.remarks || undefined
+        remarks: paymentForm.remarks || undefined,
+        duesBreakdown
       })
 
       if (response.success) {
@@ -179,6 +253,76 @@ export default function FeePayments() {
       currency: 'INR',
       maximumFractionDigits: 0
     }).format(amount)
+  }
+
+  // Send fee reminder alert
+  const sendFeeAlert = async (payment) => {
+    try {
+      setSendingAlert(payment._id)
+      const response = await feesApi.sendReminder(payment._id)
+      if (response.success) {
+        toast.success(`Reminder sent to ${response.data.sentTo}`)
+        fetchPayments() // Refresh to get updated alert count
+      }
+    } catch (error) {
+      toast.error(error.message || 'Failed to send reminder')
+    } finally {
+      setSendingAlert(null)
+    }
+  }
+
+  // Update payment status (e.g., pending -> overdue)
+  const markAsOverdue = async (payment) => {
+    try {
+      setUpdatingStatus(payment._id)
+      const response = await feesApi.updatePaymentStatus(payment._id, 'overdue')
+      if (response.success) {
+        toast.success('Payment marked as overdue')
+        fetchPayments()
+        fetchFeeStats()
+      }
+    } catch (error) {
+      toast.error(error.message || 'Failed to update status')
+    } finally {
+      setUpdatingStatus(null)
+    }
+  }
+
+  // Month options for filter
+  const MONTHS = [
+    { value: 1, label: 'January' },
+    { value: 2, label: 'February' },
+    { value: 3, label: 'March' },
+    { value: 4, label: 'April' },
+    { value: 5, label: 'May' },
+    { value: 6, label: 'June' },
+    { value: 7, label: 'July' },
+    { value: 8, label: 'August' },
+    { value: 9, label: 'September' },
+    { value: 10, label: 'October' },
+    { value: 11, label: 'November' },
+    { value: 12, label: 'December' }
+  ]
+
+  // Year options (last 3 years + current)
+  const currentYear = new Date().getFullYear()
+  const YEARS = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1]
+
+  // Generate pending fees for all students
+  const handleGenerateFees = async () => {
+    try {
+      setGenerating(true)
+      const response = await feesApi.generateMonthlyFees(selectedMonth, selectedYear)
+      if (response.success) {
+        toast.success(response.message || `Generated ${response.data.created} pending fee records`)
+        fetchPayments()
+        fetchFeeStats()
+      }
+    } catch (error) {
+      toast.error(error.message || 'Failed to generate fees')
+    } finally {
+      setGenerating(false)
+    }
   }
 
   // Export handler
@@ -307,10 +451,37 @@ export default function FeePayments() {
               </tr>
             </thead>
             <tbody>
+              ${payment.duesBreakdown ? `
+                ${payment.duesBreakdown.feeAmount > 0 ? `
+                <tr>
+                  <td>📋 ${payment.feeStructure?.name || 'Fee'}</td>
+                  <td style="text-align: right;">₹${(payment.duesBreakdown.feeAmount || 0).toLocaleString('en-IN')}</td>
+                </tr>
+                ` : ''}
+                ${payment.duesBreakdown.transport?.included ? `
+                <tr>
+                  <td>🚌 Transport Fee</td>
+                  <td style="text-align: right;">₹${(payment.duesBreakdown.transport.amount || 0).toLocaleString('en-IN')}</td>
+                </tr>
+                ` : ''}
+                ${payment.duesBreakdown.hostel?.included ? `
+                <tr>
+                  <td>🏠 Hostel Fee</td>
+                  <td style="text-align: right;">₹${(payment.duesBreakdown.hostel.amount || 0).toLocaleString('en-IN')}</td>
+                </tr>
+                ` : ''}
+                ${payment.duesBreakdown.libraryFines?.length > 0 ? `
+                <tr>
+                  <td>📚 Library Fines (${payment.duesBreakdown.libraryFines.length})</td>
+                  <td style="text-align: right;">₹${(payment.duesBreakdown.libraryFines.reduce((sum, f) => sum + f.amount, 0) || 0).toLocaleString('en-IN')}</td>
+                </tr>
+                ` : ''}
+              ` : `
               <tr>
                 <td>${payment.feeStructure?.name || 'Fee Payment'}</td>
                 <td style="text-align: right;">₹${(payment.amount || 0).toLocaleString('en-IN')}</td>
               </tr>
+              `}
               ${payment.discount > 0 ? `
               <tr>
                 <td>Discount ${payment.discountReason ? `(${payment.discountReason})` : ''}</td>
@@ -387,9 +558,17 @@ export default function FeePayments() {
           <p className="text-gray-500 mt-1">Track and manage fee collections</p>
         </div>
         <div className="flex gap-2">
-          <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm flex items-center gap-2">
-            <Download className="w-4 h-4" /> Export
-          </button>
+          {isAdmin() && (
+            <button 
+              onClick={handleGenerateFees}
+              disabled={generating}
+              className="px-4 py-2 border border-amber-500 text-amber-600 rounded-lg hover:bg-amber-50 transition text-sm flex items-center gap-2 disabled:opacity-50"
+              title="Generate pending fee records for all students"
+            >
+              {generating ? <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" /> : <Calendar className="w-4 h-4" />}
+              Generate Fees
+            </button>
+          )}
           {isAdmin() && (
             <button 
               onClick={openPaymentModal}
@@ -409,12 +588,15 @@ export default function FeePayments() {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats - Clickable to filter */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm"
+          onClick={() => setStatusFilter('paid')}
+          className={`bg-white rounded-xl p-4 border shadow-sm cursor-pointer transition hover:shadow-md ${
+            statusFilter === 'paid' ? 'border-green-500 ring-2 ring-green-200' : 'border-gray-100'
+          }`}
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-green-100 text-green-600 flex items-center justify-center">
@@ -422,7 +604,7 @@ export default function FeePayments() {
             </div>
             <div>
               <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.totalCollected)}</p>
-              <p className="text-xs text-gray-500">Collected This Month</p>
+              <p className="text-xs text-gray-500">Collected ({stats.paidCount || 0})</p>
             </div>
           </div>
         </motion.div>
@@ -431,7 +613,10 @@ export default function FeePayments() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm"
+          onClick={() => setStatusFilter('pending')}
+          className={`bg-white rounded-xl p-4 border shadow-sm cursor-pointer transition hover:shadow-md ${
+            statusFilter === 'pending' ? 'border-amber-500 ring-2 ring-amber-200' : 'border-gray-100'
+          }`}
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
@@ -439,7 +624,7 @@ export default function FeePayments() {
             </div>
             <div>
               <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.totalPending)}</p>
-              <p className="text-xs text-gray-500">Pending</p>
+              <p className="text-xs text-gray-500">Pending ({stats.pendingCount || 0})</p>
             </div>
           </div>
         </motion.div>
@@ -448,7 +633,10 @@ export default function FeePayments() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm"
+          onClick={() => setStatusFilter('overdue')}
+          className={`bg-white rounded-xl p-4 border shadow-sm cursor-pointer transition hover:shadow-md ${
+            statusFilter === 'overdue' ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-100'
+          }`}
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-red-100 text-red-600 flex items-center justify-center">
@@ -456,7 +644,7 @@ export default function FeePayments() {
             </div>
             <div>
               <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.totalOverdue)}</p>
-              <p className="text-xs text-gray-500">Overdue</p>
+              <p className="text-xs text-gray-500">Overdue ({stats.overdueCount || 0})</p>
             </div>
           </div>
         </motion.div>
@@ -465,15 +653,18 @@ export default function FeePayments() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm"
+          onClick={() => setStatusFilter('all')}
+          className={`bg-white rounded-xl p-4 border shadow-sm cursor-pointer transition hover:shadow-md ${
+            statusFilter === 'all' ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-100'
+          }`}
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center">
               <Receipt className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xl font-bold text-gray-900">{stats.paidCount || 0}</p>
-              <p className="text-xs text-gray-500">Payments This Month</p>
+              <p className="text-xl font-bold text-gray-900">{pagination.total || 0}</p>
+              <p className="text-xs text-gray-500">All Payments</p>
             </div>
           </div>
         </motion.div>
@@ -492,6 +683,24 @@ export default function FeePayments() {
               className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+            className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            {MONTHS.map(m => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+            className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            {YEARS.map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -530,7 +739,7 @@ export default function FeePayments() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fee Type</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Due Date</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Method</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
@@ -557,18 +766,44 @@ export default function FeePayments() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {payment.feeStructure?.name || 'General Fee'}
+                        <div>
+                          {payment.duesBreakdown ? (
+                            <div className="space-y-0.5">
+                              {payment.duesBreakdown.feeAmount > 0 && (
+                                <span className="block">📋 {payment.feeStructure?.name || 'Fee'}</span>
+                              )}
+                              {payment.duesBreakdown.transport?.included && (
+                                <span className="block text-xs text-blue-600">🚌 Transport</span>
+                              )}
+                              {payment.duesBreakdown.hostel?.included && (
+                                <span className="block text-xs text-purple-600">🏠 Hostel</span>
+                              )}
+                              {payment.duesBreakdown.libraryFines?.length > 0 && (
+                                <span className="block text-xs text-red-600">📚 Library ({payment.duesBreakdown.libraryFines.length})</span>
+                              )}
+                            </div>
+                          ) : (
+                            payment.feeStructure?.name || 'General Fee'
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
                         {formatCurrency(payment.paidAmount || payment.amount)}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${STATUS_COLORS[payment.status] || 'bg-gray-100 text-gray-700'}`}>
-                          {payment.status?.charAt(0).toUpperCase() + payment.status?.slice(1)}
-                        </span>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${STATUS_COLORS[payment.status] || 'bg-gray-100 text-gray-700'}`}>
+                            {payment.status?.charAt(0).toUpperCase() + payment.status?.slice(1)}
+                          </span>
+                          {payment.alertCount > 0 && (
+                            <span className="text-xs text-orange-600 flex items-center gap-1" title={`Last sent: ${payment.lastAlertSentAt ? new Date(payment.lastAlertSentAt).toLocaleDateString() : 'N/A'}`}>
+                              <Bell className="w-3 h-3" /> {payment.alertCount} alert{payment.alertCount > 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-500">
-                        {payment.paidDate ? new Date(payment.paidDate).toLocaleDateString() : '-'}
+                        {payment.dueDate ? new Date(payment.dueDate).toLocaleDateString() : '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 capitalize">
                         {payment.paymentMethod?.replace('_', ' ') || '-'}
@@ -582,6 +817,34 @@ export default function FeePayments() {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
+                          {(payment.status === 'pending' || payment.status === 'overdue') && isAdmin() && (
+                            <button
+                              onClick={() => sendFeeAlert(payment)}
+                              disabled={sendingAlert === payment._id}
+                              className="p-1.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition disabled:opacity-50"
+                              title={`Send reminder to parent${payment.alertCount > 0 ? ` (${payment.alertCount} sent)` : ''}`}
+                            >
+                              {sendingAlert === payment._id ? (
+                                <div className="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <Mail className="w-4 h-4" />
+                              )}
+                            </button>
+                          )}
+                          {payment.status === 'pending' && isAdmin() && (
+                            <button
+                              onClick={() => markAsOverdue(payment)}
+                              disabled={updatingStatus === payment._id}
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition disabled:opacity-50"
+                              title="Mark as Overdue"
+                            >
+                              {updatingStatus === payment._id ? (
+                                <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <AlertCircle className="w-4 h-4" />
+                              )}
+                            </button>
+                          )}
                           <button
                             onClick={() => downloadInvoice(payment)}
                             disabled={downloadingInvoice === payment._id}
@@ -603,6 +866,16 @@ export default function FeePayments() {
             </table>
           </div>
         )}
+
+        {/* Pagination */}
+        <Pagination
+          currentPage={pagination.page}
+          totalPages={pagination.pages}
+          totalItems={pagination.total}
+          itemsPerPage={pagination.limit}
+          onPageChange={(page) => setPagination(prev => ({ ...prev, page }))}
+          itemName="payments"
+        />
       </motion.div>
 
       {/* Payment Modal */}
@@ -630,11 +903,8 @@ export default function FeePayments() {
                   Select Class <span className="text-red-500">*</span>
                 </label>
                 <select
-                  onChange={(e) => {
-                    if (e.target.value) fetchStudents(e.target.value)
-                    else setStudents([])
-                    setPaymentForm(prev => ({ ...prev, studentId: '' }))
-                  }}
+                  value={paymentForm.classId || ''}
+                  onChange={(e) => setPaymentForm(prev => ({ ...prev, classId: e.target.value, studentId: '' }))}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
                   <option value="">Select Class</option>
@@ -649,20 +919,102 @@ export default function FeePayments() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Select Student <span className="text-red-500">*</span>
                 </label>
-                <select
+                <ApiUserSearchSelect
                   value={paymentForm.studentId}
-                  onChange={(e) => setPaymentForm(prev => ({ ...prev, studentId: e.target.value }))}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  disabled={students.length === 0}
-                >
-                  <option value="">Select Student</option>
-                  {students.map(student => (
-                    <option key={student._id} value={student._id}>
-                      {student.profile?.firstName} {student.profile?.lastName} ({student.studentData?.admissionNumber || '-'})
-                    </option>
-                  ))}
-                </select>
+                  onChange={handleStudentChange}
+                  placeholder={paymentForm.classId ? "Search student by name or admission number..." : "Select class first"}
+                  filterClassId={paymentForm.classId}
+                  initialLimit={5}
+                  disabled={!paymentForm.classId}
+                />
               </div>
+
+              {/* Student Dues Section */}
+              {paymentForm.studentId && (
+                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <Receipt className="w-4 h-4" /> Pending Dues
+                  </h4>
+                  {loadingDues ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="ml-2 text-sm text-gray-500">Loading dues...</span>
+                    </div>
+                  ) : studentDues && studentDues.totalDue > 0 ? (
+                    <div className="space-y-2">
+                      {/* Transport Due */}
+                      {studentDues.transport && (
+                        <label className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 cursor-pointer hover:bg-blue-50">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedDues.transport}
+                              onChange={(e) => setSelectedDues(prev => ({ ...prev, transport: e.target.checked }))}
+                              className="w-4 h-4 text-primary-600 rounded"
+                            />
+                            <div>
+                              <span className="text-sm font-medium text-gray-700">🚌 Transport</span>
+                              <p className="text-xs text-gray-500">{studentDues.transport.description}</p>
+                            </div>
+                          </div>
+                          <span className="text-sm font-semibold text-gray-900">{formatCurrency(studentDues.transport.amount)}</span>
+                        </label>
+                      )}
+
+                      {/* Hostel Due */}
+                      {studentDues.hostel && (
+                        <label className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 cursor-pointer hover:bg-blue-50">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedDues.hostel}
+                              onChange={(e) => setSelectedDues(prev => ({ ...prev, hostel: e.target.checked }))}
+                              className="w-4 h-4 text-primary-600 rounded"
+                            />
+                            <div>
+                              <span className="text-sm font-medium text-gray-700">🏠 Hostel</span>
+                              <p className="text-xs text-gray-500">{studentDues.hostel.description}</p>
+                            </div>
+                          </div>
+                          <span className="text-sm font-semibold text-gray-900">{formatCurrency(studentDues.hostel.amount)}</span>
+                        </label>
+                      )}
+
+                      {/* Library Fines */}
+                      {studentDues.libraryFines?.length > 0 && studentDues.libraryFines.map((fine, idx) => (
+                        <label key={fine._id} className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 cursor-pointer hover:bg-blue-50">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedDues.libraryFines.includes(fine._id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedDues(prev => ({ ...prev, libraryFines: [...prev.libraryFines, fine._id] }))
+                                } else {
+                                  setSelectedDues(prev => ({ ...prev, libraryFines: prev.libraryFines.filter(id => id !== fine._id) }))
+                                }
+                              }}
+                              className="w-4 h-4 text-primary-600 rounded"
+                            />
+                            <div>
+                              <span className="text-sm font-medium text-gray-700">📚 Library Fine</span>
+                              <p className="text-xs text-gray-500">{fine.description}</p>
+                            </div>
+                          </div>
+                          <span className="text-sm font-semibold text-red-600">{formatCurrency(fine.amount)}</span>
+                        </label>
+                      ))}
+
+                      <div className="pt-2 border-t border-gray-200 flex justify-between text-sm">
+                        <span className="text-gray-600">Total Pending Dues:</span>
+                        <span className="font-bold text-gray-900">{formatCurrency(studentDues.totalDue)}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center py-2">No pending dues found</p>
+                  )}
+                </div>
+              )}
 
               {/* Fee Structure */}
               <div>
@@ -772,12 +1124,36 @@ export default function FeePayments() {
               </div>
 
               {/* Summary */}
-              {paymentForm.amount && (
+              {(paymentForm.amount || (studentDues && (selectedDues.transport || selectedDues.hostel || selectedDues.libraryFines.length > 0))) && (
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Amount</span>
-                    <span className="font-medium">{formatCurrency(parseFloat(paymentForm.amount) || 0)}</span>
-                  </div>
+                  {paymentForm.amount && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Fee Amount</span>
+                      <span className="font-medium">{formatCurrency(parseFloat(paymentForm.amount) || 0)}</span>
+                    </div>
+                  )}
+                  {selectedDues.transport && studentDues?.transport && (
+                    <div className="flex justify-between text-sm mt-1">
+                      <span className="text-gray-600">🚌 Transport</span>
+                      <span className="font-medium">{formatCurrency(studentDues.transport.amount)}</span>
+                    </div>
+                  )}
+                  {selectedDues.hostel && studentDues?.hostel && (
+                    <div className="flex justify-between text-sm mt-1">
+                      <span className="text-gray-600">🏠 Hostel</span>
+                      <span className="font-medium">{formatCurrency(studentDues.hostel.amount)}</span>
+                    </div>
+                  )}
+                  {selectedDues.libraryFines.length > 0 && studentDues?.libraryFines && (
+                    <div className="flex justify-between text-sm mt-1">
+                      <span className="text-gray-600">📚 Library Fines ({selectedDues.libraryFines.length})</span>
+                      <span className="font-medium">{formatCurrency(
+                        studentDues.libraryFines
+                          .filter(f => selectedDues.libraryFines.includes(f._id))
+                          .reduce((sum, f) => sum + f.amount, 0)
+                      )}</span>
+                    </div>
+                  )}
                   {paymentForm.discount && (
                     <div className="flex justify-between text-sm mt-1">
                       <span className="text-gray-600">Discount</span>
@@ -787,7 +1163,13 @@ export default function FeePayments() {
                   <div className="flex justify-between text-sm mt-2 pt-2 border-t border-gray-200">
                     <span className="font-medium text-gray-900">Total Payable</span>
                     <span className="font-bold text-primary-600">
-                      {formatCurrency((parseFloat(paymentForm.amount) || 0) - (parseFloat(paymentForm.discount) || 0))}
+                      {formatCurrency(
+                        (parseFloat(paymentForm.amount) || 0) +
+                        (selectedDues.transport && studentDues?.transport ? studentDues.transport.amount : 0) +
+                        (selectedDues.hostel && studentDues?.hostel ? studentDues.hostel.amount : 0) +
+                        (studentDues?.libraryFines?.filter(f => selectedDues.libraryFines.includes(f._id)).reduce((sum, f) => sum + f.amount, 0) || 0) -
+                        (parseFloat(paymentForm.discount) || 0)
+                      )}
                     </span>
                   </div>
                 </div>
@@ -868,7 +1250,18 @@ export default function FeePayments() {
                   <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
                     <FileText className="w-3 h-3" /> Fee Type
                   </div>
-                  <p className="font-medium text-gray-900">{selectedPayment.feeStructure?.name || 'General Fee'}</p>
+                  <div className="font-medium text-gray-900">
+                    {selectedPayment.duesBreakdown ? (
+                      <div className="space-y-0.5">
+                        {selectedPayment.duesBreakdown.feeAmount > 0 && <span className="block">📋 {selectedPayment.feeStructure?.name || 'Fee'}</span>}
+                        {selectedPayment.duesBreakdown.transport?.included && <span className="block text-sm text-blue-600">🚌 Transport</span>}
+                        {selectedPayment.duesBreakdown.hostel?.included && <span className="block text-sm text-purple-600">🏠 Hostel</span>}
+                        {selectedPayment.duesBreakdown.libraryFines?.length > 0 && <span className="block text-sm text-red-600">📚 Library Fines</span>}
+                      </div>
+                    ) : (
+                      selectedPayment.feeStructure?.name || 'General Fee'
+                    )}
+                  </div>
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
@@ -898,10 +1291,39 @@ export default function FeePayments() {
                   <p className="text-sm font-medium text-gray-700">Amount Breakdown</p>
                 </div>
                 <div className="p-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Base Amount</span>
-                    <span className="font-medium">{formatCurrency(selectedPayment.amount || 0)}</span>
-                  </div>
+                  {selectedPayment.duesBreakdown ? (
+                    <>
+                      {selectedPayment.duesBreakdown.feeAmount > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">📋 {selectedPayment.feeStructure?.name || 'Fee'}</span>
+                          <span className="font-medium">{formatCurrency(selectedPayment.duesBreakdown.feeAmount)}</span>
+                        </div>
+                      )}
+                      {selectedPayment.duesBreakdown.transport?.included && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">🚌 Transport</span>
+                          <span className="font-medium">{formatCurrency(selectedPayment.duesBreakdown.transport.amount)}</span>
+                        </div>
+                      )}
+                      {selectedPayment.duesBreakdown.hostel?.included && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">🏠 Hostel</span>
+                          <span className="font-medium">{formatCurrency(selectedPayment.duesBreakdown.hostel.amount)}</span>
+                        </div>
+                      )}
+                      {selectedPayment.duesBreakdown.libraryFines?.length > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">📚 Library Fines ({selectedPayment.duesBreakdown.libraryFines.length})</span>
+                          <span className="font-medium">{formatCurrency(selectedPayment.duesBreakdown.libraryFines.reduce((sum, f) => sum + f.amount, 0))}</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Base Amount</span>
+                      <span className="font-medium">{formatCurrency(selectedPayment.amount || 0)}</span>
+                    </div>
+                  )}
                   {selectedPayment.discount > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">

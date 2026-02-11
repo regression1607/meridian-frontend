@@ -7,6 +7,7 @@ import {
   Calendar, Phone, Mail, ChevronLeft, ChevronRight, Users
 } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
+import Pagination from '../../../components/ui/Pagination'
 import { admissionsApi, classesApi } from '../../../services/api'
 
 export default function EnrollmentsList() {
@@ -15,7 +16,7 @@ export default function EnrollmentsList() {
   const [loading, setLoading] = useState(true)
   const [enrollments, setEnrollments] = useState([])
   const [classes, setClasses] = useState([])
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 1 })
+  const [pagination, setPagination] = useState({ page: 1, limit: 8, total: 0, pages: 1 })
   const [filters, setFilters] = useState({
     search: '',
     classId: '',
@@ -25,7 +26,12 @@ export default function EnrollmentsList() {
   useEffect(() => {
     fetchEnrollments()
     fetchClasses()
-  }, [pagination.page, filters])
+  }, [pagination.page, filters.classId, filters.academicYear])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }, [filters.search, filters.classId, filters.academicYear])
 
   const fetchClasses = async () => {
     try {
@@ -351,32 +357,14 @@ export default function EnrollmentsList() {
         )}
 
         {/* Pagination */}
-        {!loading && enrollments.length > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
-            <div className="text-sm text-gray-500">
-              Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                disabled={pagination.page === 1}
-                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="px-3 py-1 text-sm">
-                Page {pagination.page} of {pagination.pages}
-              </span>
-              <button
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                disabled={pagination.page >= pagination.pages}
-                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={pagination.page}
+          totalPages={pagination.pages}
+          totalItems={pagination.total}
+          itemsPerPage={pagination.limit}
+          onPageChange={(page) => setPagination(prev => ({ ...prev, page }))}
+          itemName="enrollments"
+        />
       </motion.div>
     </div>
   )

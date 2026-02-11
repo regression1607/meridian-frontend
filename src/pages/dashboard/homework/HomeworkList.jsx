@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { toast } from 'react-toastify'
 import {
-  BookOpen, Plus, Search, Filter, Calendar, Clock,
-  Users, CheckCircle, AlertCircle, Eye, Edit, Trash2,
-  ChevronLeft, ChevronRight, FileText, GraduationCap
+  BookOpen, Plus, Search, Calendar, Clock,
+  Users, CheckCircle, AlertCircle, Eye, Edit, Trash2, FileText
 } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { TableSkeleton } from '../../../components/ui/Loading'
+import Pagination from '../../../components/ui/Pagination'
 import { homeworkApi, classesApi, subjectsApi, institutionsApi } from '../../../services/api'
 
 const STATUS_CONFIG = {
@@ -25,7 +25,7 @@ export default function HomeworkList() {
   const [homework, setHomework] = useState([])
   const [classes, setClasses] = useState([])
   const [subjects, setSubjects] = useState([])
-  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 0 })
+  const [pagination, setPagination] = useState({ page: 1, limit: 8, total: 0, pages: 0 })
   const [filters, setFilters] = useState({
     classId: '',
     subjectId: '',
@@ -62,7 +62,12 @@ export default function HomeworkList() {
       fetchHomework()
       fetchStats()
     }
-  }, [institutionId, pagination.page, filters])
+  }, [institutionId, pagination.page, filters.classId, filters.subjectId, filters.status])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }, [filters.classId, filters.subjectId, filters.status])
 
   const fetchClasses = async () => {
     try {
@@ -95,8 +100,13 @@ export default function HomeworkList() {
       }
       const response = await homeworkApi.getAll(params)
       setHomework(response.data || [])
-      if (response.pagination) {
-        setPagination(prev => ({ ...prev, ...response.pagination }))
+      if (response.meta) {
+        setPagination(prev => ({
+          ...prev,
+          page: response.meta.page || prev.page,
+          total: response.meta.total || 0,
+          pages: response.meta.totalPages || Math.ceil((response.meta.total || 0) / prev.limit)
+        }))
       }
     } catch (error) {
       console.error('Failed to fetch homework:', error)
@@ -390,34 +400,14 @@ export default function HomeworkList() {
         )}
 
         {/* Pagination */}
-        {pagination.pages > 1 && (
-          <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-            <p className="text-sm text-gray-600">
-              Showing <span className="font-medium">{(pagination.page - 1) * pagination.limit + 1}</span> to{' '}
-              <span className="font-medium">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of{' '}
-              <span className="font-medium">{pagination.total}</span> assignments
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                disabled={pagination.page === 1}
-                className="p-2 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-sm text-gray-600">
-                Page {pagination.page} of {pagination.pages}
-              </span>
-              <button
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                disabled={pagination.page === pagination.pages}
-                className="p-2 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={pagination.page}
+          totalPages={pagination.pages}
+          totalItems={pagination.total}
+          itemsPerPage={pagination.limit}
+          onPageChange={(page) => setPagination(prev => ({ ...prev, page }))}
+          itemName="assignments"
+        />
       </motion.div>
     </div>
   )

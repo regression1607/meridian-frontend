@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  Search, Bell, Menu, User, Settings, LogOut, ChevronDown,
-  Sun, Moon, Globe, HelpCircle, Loader2
+  Search, Menu, User, Settings, LogOut, ChevronDown, HelpCircle, Bell, Check, Trash2
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import VersionInfo from '../ui/VersionInfo'
 import { notificationsApi } from '../../services/api'
 
 export default function Header({ onMenuClick, user }) {
@@ -12,34 +12,47 @@ export default function Header({ onMenuClick, user }) {
   const { logout } = useAuth()
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const [loadingNotifications, setLoadingNotifications] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const profileRef = useRef(null)
   const notificationRef = useRef(null)
 
-  // Fetch notifications
-  const fetchNotifications = useCallback(async () => {
+  const fetchNotifications = async () => {
     try {
-      setLoading(true)
-      const res = await notificationsApi.getAll({ limit: 10 })
-      setNotifications(res.data || [])
-      setUnreadCount(res.unreadCount || 0)
-    } catch (error) {
-      console.error('Failed to fetch notifications:', error)
+      setLoadingNotifications(true)
+      const res = await notificationsApi.getAll({ limit: 3 })
+      if (res.success) {
+        setNotifications(res.data || [])
+        setUnreadCount(res.unreadCount || 0)
+      }
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err)
     } finally {
-      setLoading(false)
+      setLoadingNotifications(false)
     }
-  }, [])
+  }
 
-  // Initial fetch and polling
+  const markAsRead = async (id) => {
+    try {
+      await notificationsApi.markAsRead(id)
+      setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n))
+      setUnreadCount(prev => Math.max(0, prev - 1))
+    } catch (err) { console.error(err) }
+  }
+
+  const markAllAsRead = async () => {
+    try {
+      await notificationsApi.markAllAsRead()
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
+      setUnreadCount(0)
+    } catch (err) { console.error(err) }
+  }
+
   useEffect(() => {
     fetchNotifications()
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000)
-    return () => clearInterval(interval)
-  }, [fetchNotifications])
+  }, [])
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -54,26 +67,6 @@ export default function Header({ onMenuClick, user }) {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
-
-  const handleMarkAsRead = async (id) => {
-    try {
-      await notificationsApi.markAsRead(id)
-      setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n))
-      setUnreadCount(prev => Math.max(0, prev - 1))
-    } catch (error) {
-      console.error('Failed to mark as read:', error)
-    }
-  }
-
-  const handleMarkAllAsRead = async () => {
-    try {
-      await notificationsApi.markAllAsRead()
-      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
-      setUnreadCount(0)
-    } catch (error) {
-      console.error('Failed to mark all as read:', error)
-    }
-  }
 
   return (
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30">
@@ -111,71 +104,69 @@ export default function Header({ onMenuClick, user }) {
         {/* Notifications */}
         <div className="relative" ref={notificationRef}>
           <button
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500"
+            onClick={() => {
+              if (!showNotifications) fetchNotifications()
+              setShowNotifications(!showNotifications)
+            }}
+            className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition"
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                {unreadCount}
+              <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
           </button>
 
-          {/* Notifications Dropdown */}
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
-              <div className="px-4 py-2 border-b border-gray-100 flex justify-between items-center">
+            <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
+              <div className="flex items-center justify-between p-3 border-b bg-gray-50">
                 <h3 className="font-semibold text-gray-900">Notifications</h3>
                 {unreadCount > 0 && (
-                  <button 
-                    onClick={handleMarkAllAsRead}
-                    className="text-xs text-primary-600 hover:text-primary-700"
-                  >
-                    Mark all read
+                  <button onClick={markAllAsRead} className="text-xs text-primary-600 hover:underline flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Mark all read
                   </button>
                 )}
               </div>
-              <div className="max-h-80 overflow-y-auto">
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
-                  </div>
+              <div>
+                {loadingNotifications ? (
+                  <div className="p-4 text-center text-gray-500">Loading...</div>
                 ) : notifications.length === 0 ? (
-                  <div className="px-4 py-8 text-center text-gray-500 text-sm">
-                    No notifications yet
+                  <div className="p-6 text-center">
+                    <Bell className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-500 text-sm">No notifications</p>
                   </div>
                 ) : (
-                  notifications.map((notification) => (
+                  notifications.map(n => (
                     <div
-                      key={notification._id}
-                      onClick={() => !notification.isRead && handleMarkAsRead(notification._id)}
-                      className={`px-4 py-3 hover:bg-gray-50 cursor-pointer ${
-                        !notification.isRead ? 'bg-primary-50/50' : ''
-                      }`}
+                      key={n._id}
+                      onClick={() => !n.isRead && markAsRead(n._id)}
+                      className={`p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${!n.isRead ? 'bg-blue-50/50' : ''}`}
                     >
-                      <div className="flex items-start gap-3">
-                        <div className={`w-2 h-2 rounded-full mt-2 ${!notification.isRead ? 'bg-primary-500' : 'bg-transparent'}`} />
+                      <div className="flex items-start gap-2">
+                        <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${!n.isRead ? 'bg-primary-500' : 'bg-gray-300'}`} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-900">{notification.title}</p>
-                          {notification.message && (
-                            <p className="text-xs text-gray-600 mt-0.5 line-clamp-1">{notification.message}</p>
-                          )}
-                          <p className="text-xs text-gray-500 mt-0.5">{notification.timeAgo}</p>
+                          <p className="text-sm font-medium text-gray-900 truncate">{n.title}</p>
+                          <p className="text-xs text-gray-500 line-clamp-1">{n.message}</p>
                         </div>
                       </div>
                     </div>
                   ))
                 )}
               </div>
-              <div className="px-4 py-2 border-t border-gray-100">
-                <Link to="/dashboard/notifications" className="text-sm text-primary-600 hover:text-primary-700">
-                  View all notifications
-                </Link>
-              </div>
+              <Link
+                to="/dashboard/notifications"
+                onClick={() => setShowNotifications(false)}
+                className="block p-3 text-center text-sm text-primary-600 hover:bg-gray-50 border-t"
+              >
+                View all notifications
+              </Link>
             </div>
           )}
         </div>
+
+        {/* Version Info */}
+        <VersionInfo />
 
         {/* Divider */}
         <div className="w-px h-6 bg-gray-200 mx-2" />
@@ -186,14 +177,24 @@ export default function Header({ onMenuClick, user }) {
             onClick={() => setShowProfileMenu(!showProfileMenu)}
             className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-100 transition"
           >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center">
-              <span className="text-white text-sm font-medium">
-                {user?.name?.charAt(0) || 'U'}
-              </span>
-            </div>
+            {(user?.profile?.avatar || user?.avatar) ? (
+              <img 
+                src={user?.profile?.avatar || user?.avatar} 
+                alt="Avatar" 
+                className="w-8 h-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center">
+                <span className="text-white text-sm font-medium">
+                  {user?.profile?.firstName?.charAt(0) || user?.firstName?.charAt(0) || user?.name?.charAt(0) || 'U'}
+                </span>
+              </div>
+            )}
             <div className="hidden lg:block text-left">
-              <p className="text-sm font-medium text-gray-900">{user?.name || 'John Doe'}</p>
-              <p className="text-xs text-gray-500 capitalize">{user?.role?.replace('_', ' ') || 'Admin'}</p>
+              <p className="text-sm font-medium text-gray-900">
+                {user?.profile ? `${user.profile.firstName} ${user.profile.lastName}` : user?.name || 'User'}
+              </p>
+              <p className="text-xs text-gray-500 capitalize">{user?.role?.replace(/_/g, ' ') || 'User'}</p>
             </div>
             <ChevronDown className="hidden lg:block w-4 h-4 text-gray-400" />
           </button>
@@ -201,9 +202,26 @@ export default function Header({ onMenuClick, user }) {
           {/* Profile Dropdown */}
           {showProfileMenu && (
             <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
-              <div className="px-4 py-3 border-b border-gray-100">
-                <p className="text-sm font-medium text-gray-900">{user?.name || 'John Doe'}</p>
-                <p className="text-xs text-gray-500">{user?.email || 'john@meridian-ems.com'}</p>
+              <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
+                {(user?.profile?.avatar || user?.avatar) ? (
+                  <img 
+                    src={user?.profile?.avatar || user?.avatar} 
+                    alt="Avatar" 
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center">
+                    <span className="text-white text-sm font-medium">
+                      {user?.profile?.firstName?.charAt(0) || user?.firstName?.charAt(0) || 'U'}
+                    </span>
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {user?.profile ? `${user.profile.firstName} ${user.profile.lastName}` : user?.name || 'User'}
+                  </p>
+                  <p className="text-xs text-gray-500">{user?.email || ''}</p>
+                </div>
               </div>
               <div className="py-1">
                 <Link
