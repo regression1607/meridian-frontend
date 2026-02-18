@@ -612,9 +612,9 @@ export default function LandingPage() {
               className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-shadow"
             >
               <div className="text-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Free</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Free Trial</h3>
                 <div className="text-3xl font-bold text-gray-900">₹0</div>
-                <p className="text-gray-500 text-sm mt-1">Forever free</p>
+                <p className="text-gray-500 text-sm mt-1">7 days free, no credit card required</p>
               </div>
               <ul className="space-y-3 mb-6">
                 <li className="flex items-center gap-2 text-sm text-gray-600">
