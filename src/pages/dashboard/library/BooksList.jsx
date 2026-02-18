@@ -25,7 +25,12 @@ const CATEGORIES = [
 
 export default function BooksList() {
   const { user } = useAuth()
+  const isStudent = user?.role === 'student'
+  const canManage = ['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher', 'staff'].includes(user?.role)
+  
   const [loading, setLoading] = useState(true)
+  const [showRequestModal, setShowRequestModal] = useState(false)
+  const [requestingBook, setRequestingBook] = useState(null)
   const [books, setBooks] = useState([])
   const [subjects, setSubjects] = useState([])
   const [stats, setStats] = useState({})
@@ -170,25 +175,29 @@ export default function BooksList() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Library - Books</h1>
-          <p className="text-gray-500">Manage your library book collection</p>
+          <h1 className="text-2xl font-bold text-gray-900">{isStudent ? 'Library Books' : 'Library - Books'}</h1>
+          <p className="text-gray-500">{isStudent ? 'Browse and request books from the library' : 'Manage your library book collection'}</p>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={handleExport}
-            disabled={exporting || books.length === 0}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-          >
-            {exporting ? <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
-            Export
-          </button>
-          <button
-            onClick={() => { setEditingBook(null); setShowModal(true) }}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-          >
-            <Plus className="w-4 h-4" />
-            Add Book
-          </button>
+          {canManage && (
+            <>
+              <button
+                onClick={handleExport}
+                disabled={exporting || books.length === 0}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                {exporting ? <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
+                Export
+              </button>
+              <button
+                onClick={() => { setEditingBook(null); setShowModal(true) }}
+                className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              >
+                <Plus className="w-4 h-4" />
+                Add Book
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -272,21 +281,37 @@ export default function BooksList() {
                   <button
                     onClick={() => { setViewingBook(book); setShowViewModal(true) }}
                     className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                    title="View Details"
                   >
                     <Eye className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={() => { setEditingBook(book); setShowModal(true) }}
-                    className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteBook(book._id)}
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {isStudent ? (
+                    <button
+                      onClick={() => { setRequestingBook(book); setShowRequestModal(true) }}
+                      disabled={book.availableCopies === 0}
+                      className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={book.availableCopies > 0 ? 'Request Book' : 'Not Available'}
+                    >
+                      <BookMarked className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => { setEditingBook(book); setShowModal(true) }}
+                        className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded"
+                        title="Edit"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteBook(book._id)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </td>
             </>
@@ -318,6 +343,76 @@ export default function BooksList() {
         onClose={() => { setShowViewModal(false); setViewingBook(null) }}
         book={viewingBook}
       />
+
+      {/* Book Request Modal for Students */}
+      {showRequestModal && requestingBook && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-xl w-full max-w-md"
+          >
+            <div className="p-4 border-b flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Request Book</h2>
+              <button onClick={() => { setShowRequestModal(false); setRequestingBook(null) }} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="flex gap-4">
+                <div className="w-16 h-20 bg-primary-100 rounded-lg flex items-center justify-center">
+                  <BookOpen className="w-8 h-8 text-primary-500" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">{requestingBook.title}</h3>
+                  <p className="text-sm text-gray-500">{requestingBook.author}</p>
+                  <p className="text-xs text-gray-400 mt-1">Code: {requestingBook.bookCode}</p>
+                </div>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-700">
+                  <strong>Available Copies:</strong> {requestingBook.availableCopies} / {requestingBook.totalCopies}
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  Your request will be sent to the librarian for approval.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Request (Optional)</label>
+                <textarea
+                  rows={3}
+                  placeholder="Why do you need this book?"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                />
+              </div>
+            </div>
+            <div className="p-4 border-t flex gap-3">
+              <button
+                onClick={() => { setShowRequestModal(false); setRequestingBook(null) }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await libraryApi.requestBook(requestingBook._id)
+                    toast.success('Book request submitted successfully!')
+                    setShowRequestModal(false)
+                    setRequestingBook(null)
+                  } catch (error) {
+                    toast.error(error.message || 'Failed to submit request')
+                  }
+                }}
+                className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              >
+                Submit Request
+              </button>
+            </div>
+          </motion.div>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

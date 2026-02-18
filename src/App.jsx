@@ -25,6 +25,7 @@ import InstitutionsList from './pages/dashboard/institutions/InstitutionsList'
 import AddInstitution from './pages/dashboard/institutions/AddInstitution'
 import InstitutionDetails from './pages/dashboard/institutions/InstitutionDetails'
 import Attendance from './pages/dashboard/Attendance'
+import StudentAttendance from './pages/dashboard/StudentAttendance'
 import Profile from './pages/dashboard/Profile'
 import Settings from './pages/dashboard/Settings'
 import ClassesList from './pages/dashboard/academics/ClassesList'
@@ -143,12 +144,12 @@ function App() {
             } />
             {/* Academic Management */}
             <Route path="classes" element={
-              <ProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'coordinator']}>
+              <ProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher']}>
                 <ClassesList />
               </ProtectedRoute>
             } />
             <Route path="subjects" element={
-              <ProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'coordinator']}>
+              <ProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher']}>
                 <SubjectsList />
               </ProtectedRoute>
             } />
@@ -160,6 +161,11 @@ function App() {
             <Route path="attendance" element={
               <ProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher']}>
                 <Attendance />
+              </ProtectedRoute>
+            } />
+            <Route path="my-attendance" element={
+              <ProtectedRoute allowedRoles={['student', 'parent']}>
+                <StudentAttendance />
               </ProtectedRoute>
             } />
             <Route path="fees" element={
@@ -174,7 +180,7 @@ function App() {
             } />
             {/* Homework Management */}
             <Route path="homework/assignments" element={
-              <ProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher']}>
+              <ProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher', 'student', 'parent']}>
                 <HomeworkList />
               </ProtectedRoute>
             } />
@@ -184,12 +190,12 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="homework/submissions" element={
-              <ProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher']}>
+              <ProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher', 'student', 'parent']}>
                 <HomeworkSubmissions />
               </ProtectedRoute>
             } />
             <Route path="homework/:id" element={
-              <ProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher']}>
+              <ProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher', 'student', 'parent']}>
                 <HomeworkDetail />
               </ProtectedRoute>
             } />
@@ -272,7 +278,7 @@ function App() {
             } />
             {/* Examinations */}
             <Route path="exams" element={
-              <ProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher']}>
+              <ProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher', 'student', 'parent']}>
                 <ExamManagement />
               </ProtectedRoute>
             } />

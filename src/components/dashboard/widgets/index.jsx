@@ -367,6 +367,30 @@ export function PerformanceWidget({ data }) {
   )
 }
 
+export function TeacherClassesWidget({ data }) {
+  const classes = data?.classes || []
+  return (
+    <div className="space-y-3">
+      {classes.length === 0 ? (
+        <div className="text-center py-4">
+          <GraduationCap className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+          <p className="text-gray-500 text-sm">No classes assigned yet</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          {classes.slice(0, 6).map((cls, i) => (
+            <div key={i} className="p-3 rounded-lg bg-gradient-to-br from-primary-50 to-primary-100 border border-primary-200">
+              <p className="font-semibold text-primary-700">{cls.name || cls.className}</p>
+              <p className="text-xs text-primary-600">{cls.section ? `Section ${cls.section}` : ''}</p>
+              <p className="text-xs text-gray-500 mt-1">{cls.studentCount || cls.students || 0} students</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export const WIDGET_COMPONENTS = {
   stats: StatsWidget,
   attendance: AttendanceWidget,
@@ -383,7 +407,8 @@ export const WIDGET_COMPONENTS = {
   payroll: PayrollWidget,
   hostel: HostelWidget,
   admissions: AdmissionsWidget,
-  performance: PerformanceWidget
+  performance: PerformanceWidget,
+  teacherClasses: TeacherClassesWidget
 }
 
 export { ICON_MAP }

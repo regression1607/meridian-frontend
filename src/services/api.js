@@ -382,7 +382,14 @@ export const libraryApi = {
   issueBook: (data) => api.post('/library/issues', data),
   returnBook: (id, remarks) => api.put(`/library/issues/${id}/return`, { remarks }),
   renewBook: (id) => api.put(`/library/issues/${id}/renew`),
-  markAsLost: (id) => api.put(`/library/issues/${id}/lost`)
+  markAsLost: (id) => api.put(`/library/issues/${id}/lost`),
+  // Book Requests (for students)
+  requestBook: (bookId, reason) => api.post('/library/requests', { bookId, reason }),
+  getMyRequests: () => api.get('/library/requests/me'),
+  // Request management (for staff)
+  getRequests: (params) => api.get('/library/requests', params),
+  approveRequest: (id) => api.put(`/library/requests/${id}/approve`),
+  rejectRequest: (id, reason) => api.put(`/library/requests/${id}/reject`, { reason })
 }
 
 // Hostel endpoints
@@ -465,7 +472,8 @@ export const reportsApi = {
   getAttendance: (params) => api.get('/reports/attendance', params),
   getFees: (params) => api.get('/reports/fees', params),
   getLibrary: () => api.get('/reports/library'),
-  getPayroll: (params) => api.get('/reports/payroll', params)
+  getPayroll: (params) => api.get('/reports/payroll', params),
+  getTeacherClasses: () => api.get('/reports/teacher-classes')
 }
 
 // User Preferences endpoints

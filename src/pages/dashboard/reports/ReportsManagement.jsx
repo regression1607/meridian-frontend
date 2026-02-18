@@ -3,18 +3,22 @@ import { motion } from 'framer-motion'
 import {
   Users, GraduationCap, Calendar, DollarSign, BookOpen, Wallet,
   TrendingUp, TrendingDown, PieChart, BarChart3, Download, RefreshCw,
-  Filter, FileText, Printer, ChevronDown, ArrowUpRight, ArrowDownRight
+  Filter, FileText, Printer, ChevronDown, ArrowUpRight, ArrowDownRight,
+  ClipboardList
 } from 'lucide-react'
 import { reportsApi } from '../../../services/api'
+import { useAuth } from '../../../context/AuthContext'
 
-const REPORT_TABS = [
-  { id: 'dashboard', label: 'Dashboard', icon: PieChart },
-  { id: 'students', label: 'Students', icon: GraduationCap },
-  { id: 'staff', label: 'Staff', icon: Users },
-  { id: 'attendance', label: 'Attendance', icon: Calendar },
-  { id: 'fees', label: 'Fees', icon: DollarSign },
-  { id: 'library', label: 'Library', icon: BookOpen },
-  { id: 'payroll', label: 'Payroll', icon: Wallet }
+const ALL_REPORT_TABS = [
+  { id: 'dashboard', label: 'Dashboard', icon: PieChart, roles: ['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher', 'student', 'parent', 'staff'] },
+  { id: 'students', label: 'Students', icon: GraduationCap, roles: ['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher'] },
+  { id: 'staff', label: 'Staff', icon: Users, roles: ['super_admin', 'admin', 'institution_admin', 'coordinator'] },
+  { id: 'attendance', label: 'Attendance', icon: Calendar, roles: ['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher', 'student', 'parent'] },
+  { id: 'fees', label: 'Fees', icon: DollarSign, roles: ['super_admin', 'admin', 'institution_admin', 'parent'] },
+  { id: 'library', label: 'Library', icon: BookOpen, roles: ['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher', 'student'] },
+  { id: 'payroll', label: 'Payroll', icon: Wallet, roles: ['super_admin', 'admin', 'institution_admin'] },
+  { id: 'my-classes', label: 'My Classes', icon: ClipboardList, roles: ['teacher'] },
+  { id: 'my-performance', label: 'My Performance', icon: TrendingUp, roles: ['student'] }
 ]
 
 const DATE_PRESETS = [
@@ -29,6 +33,7 @@ const DATE_PRESETS = [
 ]
 
 export default function ReportsManagement() {
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('dashboard')
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState(null)
@@ -37,6 +42,9 @@ export default function ReportsManagement() {
   const [showFilters, setShowFilters] = useState(false)
   const [year, setYear] = useState(new Date().getFullYear())
   const reportRef = useRef(null)
+
+  // Filter tabs based on user role
+  const REPORT_TABS = ALL_REPORT_TABS.filter(tab => tab.roles.includes(user?.role))
 
   useEffect(() => {
     fetchReport()
@@ -71,6 +79,8 @@ export default function ReportsManagement() {
       else if (activeTab === 'fees') res = await reportsApi.getFees(dates)
       else if (activeTab === 'library') res = await reportsApi.getLibrary()
       else if (activeTab === 'payroll') res = await reportsApi.getPayroll({ year })
+      else if (activeTab === 'my-classes') res = await reportsApi.getTeacherClasses()
+      else if (activeTab === 'my-performance') res = await reportsApi.getDashboard() // placeholder for student
       if (res?.success) setData(res.data)
     } catch (err) { console.error(err) }
     setLoading(false)
@@ -189,13 +199,15 @@ export default function ReportsManagement() {
             <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div></div>
           ) : (
             <>
-              {activeTab === 'dashboard' && <DashboardReport data={data} />}
+              {activeTab === 'dashboard' && <DashboardReport data={data} userRole={user?.role} />}
               {activeTab === 'students' && <StudentReport data={data} />}
               {activeTab === 'staff' && <StaffReport data={data} />}
-              {activeTab === 'attendance' && <AttendanceReport data={data} />}
+              {activeTab === 'attendance' && <AttendanceReport data={data} userRole={user?.role} />}
               {activeTab === 'fees' && <FeeReport data={data} />}
               {activeTab === 'library' && <LibraryReport data={data} />}
               {activeTab === 'payroll' && <PayrollReport data={data} year={year} />}
+              {activeTab === 'my-classes' && <TeacherClassesReport data={data} />}
+              {activeTab === 'my-performance' && <StudentPerformanceReport data={data} />}
             </>
           )}
         </div>
@@ -204,23 +216,63 @@ export default function ReportsManagement() {
   )
 }
 
-function DashboardReport({ data }) {
+function DashboardReport({ data, userRole }) {
   if (!data) return <p className="text-gray-500">No data available</p>
+  
+  const isAdmin = ['super_admin', 'admin', 'institution_admin'].includes(userRole)
+  const isTeacher = userRole === 'teacher'
+  const isStudent = userRole === 'student'
+  const isParent = userRole === 'parent'
+  
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
+      {/* Summary Cards - Role specific */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetricCard icon={GraduationCap} label="Total Students" value={data.students || 0} color="blue" change="+12%" positive />
-        <MetricCard icon={Users} label="Total Teachers" value={data.teachers || 0} color="green" />
-        <MetricCard icon={DollarSign} label="Fee This Month" value={`₹${(data.feeCollectedThisMonth || 0).toLocaleString()}`} color="purple" change="+8%" positive />
-        <MetricCard icon={Calendar} label="Attendance Today" value={`${data.todayAttendance?.percentage || 0}%`} color="orange" trend={data.todayAttendance?.percentage >= 80 ? 'up' : 'down'} />
+        {isAdmin && (
+          <>
+            <MetricCard icon={GraduationCap} label="Total Students" value={data.students || 0} color="blue" change="+12%" positive />
+            <MetricCard icon={Users} label="Total Teachers" value={data.teachers || 0} color="green" />
+            <MetricCard icon={DollarSign} label="Fee This Month" value={`₹${(data.feeCollectedThisMonth || 0).toLocaleString()}`} color="purple" change="+8%" positive />
+            <MetricCard icon={Calendar} label="Attendance Today" value={`${data.todayAttendance?.percentage || 0}%`} color="orange" trend={data.todayAttendance?.percentage >= 80 ? 'up' : 'down'} />
+          </>
+        )}
+        {isTeacher && (
+          <>
+            <MetricCard icon={GraduationCap} label="My Students" value={data.students || 0} color="blue" />
+            <MetricCard icon={ClipboardList} label="Classes Today" value={data.classesToday || 5} color="green" />
+            <MetricCard icon={Calendar} label="Attendance Today" value={`${data.todayAttendance?.percentage || 0}%`} color="orange" />
+            <MetricCard icon={BookOpen} label="Assignments" value={data.assignments || 0} color="purple" />
+          </>
+        )}
+        {isStudent && (
+          <>
+            <MetricCard icon={Calendar} label="My Attendance" value={`${data.todayAttendance?.percentage || 0}%`} color="green" />
+            <MetricCard icon={BookOpen} label="Pending Homework" value={data.pendingHomework || 0} color="orange" />
+            <MetricCard icon={ClipboardList} label="Upcoming Exams" value={data.upcomingExams || 0} color="purple" />
+            <MetricCard icon={TrendingUp} label="Overall Grade" value={data.overallGrade || 'A'} color="blue" />
+          </>
+        )}
+        {isParent && (
+          <>
+            <MetricCard icon={Calendar} label="Child's Attendance" value={`${data.todayAttendance?.percentage || 0}%`} color="green" />
+            <MetricCard icon={DollarSign} label="Fee Status" value={data.feeStatus || 'Paid'} color="purple" />
+            <MetricCard icon={TrendingUp} label="Child's Grade" value={data.childGrade || 'A'} color="blue" />
+            <MetricCard icon={BookOpen} label="Pending Tasks" value={data.pendingTasks || 0} color="orange" />
+          </>
+        )}
+        {!isAdmin && !isTeacher && !isStudent && !isParent && (
+          <>
+            <MetricCard icon={Calendar} label="Attendance Today" value={`${data.todayAttendance?.percentage || 0}%`} color="orange" />
+            <MetricCard icon={Users} label="Staff Present" value={data.staffPresent || 0} color="green" />
+          </>
+        )}
       </div>
 
       {/* Charts Row */}
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className={`grid ${isAdmin ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-6`}>
         {/* Attendance Donut */}
         <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-5 border">
-          <h3 className="font-semibold mb-4 flex items-center gap-2"><Calendar className="w-4 h-4 text-primary-500" />Today's Attendance</h3>
+          <h3 className="font-semibold mb-4 flex items-center gap-2"><Calendar className="w-4 h-4 text-primary-500" />{isStudent || isParent ? 'My Attendance' : "Today's Attendance"}</h3>
           <div className="flex items-center justify-center">
             <DonutChart percentage={data.todayAttendance?.percentage || 0} size={140} strokeWidth={14} color="#22c55e" />
           </div>
@@ -230,43 +282,73 @@ function DashboardReport({ data }) {
           </div>
         </div>
 
-        {/* Quick Stats */}
-        <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-5 border">
-          <h3 className="font-semibold mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-primary-500" />Institution Overview</h3>
-          <div className="space-y-4">
-            <StatRow label="Students" value={data.students || 0} total={500} color="blue" />
-            <StatRow label="Teachers" value={data.teachers || 0} total={50} color="green" />
-            <StatRow label="Staff" value={15} total={30} color="purple" />
-          </div>
-        </div>
-
-        {/* Fee Overview */}
-        <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-5 border">
-          <h3 className="font-semibold mb-4 flex items-center gap-2"><DollarSign className="w-4 h-4 text-primary-500" />Fee Collection</h3>
-          <div className="text-center py-4">
-            <p className="text-3xl font-bold text-green-600">₹{(data.feeCollectedThisMonth || 0).toLocaleString()}</p>
-            <p className="text-sm text-gray-500 mt-1">Collected This Month</p>
-          </div>
-          <div className="mt-4 space-y-2">
-            <div className="flex justify-between text-sm"><span className="text-gray-600">Target</span><span className="font-medium">₹5,00,000</span></div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-green-500 h-2 rounded-full" style={{ width: `${Math.min((data.feeCollectedThisMonth || 0) / 500000 * 100, 100)}%` }}></div>
+        {/* Quick Stats - Admin only */}
+        {isAdmin && (
+          <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-5 border">
+            <h3 className="font-semibold mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-primary-500" />Institution Overview</h3>
+            <div className="space-y-4">
+              <StatRow label="Students" value={data.students || 0} total={500} color="blue" />
+              <StatRow label="Teachers" value={data.teachers || 0} total={50} color="green" />
+              <StatRow label="Staff" value={15} total={30} color="purple" />
             </div>
-            <p className="text-xs text-gray-500 text-right">{((data.feeCollectedThisMonth || 0) / 500000 * 100).toFixed(1)}% of target</p>
           </div>
-        </div>
+        )}
+
+        {/* Teacher specific */}
+        {isTeacher && (
+          <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-5 border">
+            <h3 className="font-semibold mb-4 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-primary-500" />Class Performance</h3>
+            <div className="space-y-4">
+              <StatRow label="Assignments Submitted" value={data.assignmentsSubmitted || 0} total={data.totalAssignments || 50} color="blue" />
+              <StatRow label="Average Score" value={data.avgScore || 75} total={100} color="green" />
+              <StatRow label="Attendance Rate" value={data.attendanceRate || 85} total={100} color="purple" />
+            </div>
+          </div>
+        )}
+
+        {/* Student specific */}
+        {isStudent && (
+          <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-5 border">
+            <h3 className="font-semibold mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-primary-500" />My Progress</h3>
+            <div className="space-y-4">
+              <StatRow label="Homework Completed" value={data.homeworkCompleted || 0} total={data.totalHomework || 20} color="blue" />
+              <StatRow label="Average Score" value={data.avgScore || 80} total={100} color="green" />
+              <StatRow label="Attendance" value={data.attendanceRate || 90} total={100} color="purple" />
+            </div>
+          </div>
+        )}
+
+        {/* Fee Overview - Admin/Parent only */}
+        {(isAdmin || isParent) && (
+          <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-5 border">
+            <h3 className="font-semibold mb-4 flex items-center gap-2"><DollarSign className="w-4 h-4 text-primary-500" />{isParent ? 'Fee Status' : 'Fee Collection'}</h3>
+            <div className="text-center py-4">
+              <p className="text-3xl font-bold text-green-600">₹{(data.feeCollectedThisMonth || 0).toLocaleString()}</p>
+              <p className="text-sm text-gray-500 mt-1">{isParent ? 'Paid This Year' : 'Collected This Month'}</p>
+            </div>
+            <div className="mt-4 space-y-2">
+              <div className="flex justify-between text-sm"><span className="text-gray-600">{isParent ? 'Total Fee' : 'Target'}</span><span className="font-medium">₹5,00,000</span></div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="bg-green-500 h-2 rounded-full" style={{ width: `${Math.min((data.feeCollectedThisMonth || 0) / 500000 * 100, 100)}%` }}></div>
+              </div>
+              <p className="text-xs text-gray-500 text-right">{((data.feeCollectedThisMonth || 0) / 500000 * 100).toFixed(1)}% {isParent ? 'paid' : 'of target'}</p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Performance Indicators */}
-      <div className="bg-gradient-to-r from-primary-50 to-blue-50 rounded-xl p-5 border border-primary-100">
-        <h3 className="font-semibold mb-4">Key Performance Indicators</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KPICard label="Attendance Rate" value="92%" target="95%" status="warning" />
-          <KPICard label="Fee Collection" value="78%" target="100%" status="warning" />
-          <KPICard label="Student Satisfaction" value="4.5/5" target="4.0/5" status="success" />
-          <KPICard label="Teacher Retention" value="98%" target="90%" status="success" />
+      {/* Performance Indicators - Admin only */}
+      {isAdmin && (
+        <div className="bg-gradient-to-r from-primary-50 to-blue-50 rounded-xl p-5 border border-primary-100">
+          <h3 className="font-semibold mb-4">Key Performance Indicators</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <KPICard label="Attendance Rate" value="92%" target="95%" status="warning" />
+            <KPICard label="Fee Collection" value="78%" target="100%" status="warning" />
+            <KPICard label="Student Satisfaction" value="4.5/5" target="4.0/5" status="success" />
+            <KPICard label="Teacher Retention" value="98%" target="90%" status="success" />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
@@ -540,6 +622,93 @@ function MetricCard({ icon: Icon, label, value, color, trend, change, positive }
       </div>
       <p className="text-2xl font-bold text-gray-900">{value}</p>
       <p className="text-sm text-gray-500">{label}</p>
+    </div>
+  )
+}
+
+function TeacherClassesReport({ data }) {
+  const classes = data?.classes || []
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <MetricCard icon={ClipboardList} label="Total Classes" value={classes.length || 0} color="blue" />
+        <MetricCard icon={GraduationCap} label="Total Students" value={data?.totalStudents || 0} color="green" />
+        <MetricCard icon={Calendar} label="Classes Today" value={data?.classesToday || 0} color="purple" />
+        <MetricCard icon={BookOpen} label="Subjects" value={data?.subjects || 0} color="orange" />
+      </div>
+      <div className="bg-gray-50 rounded-xl p-4">
+        <h3 className="font-semibold mb-4">My Classes</h3>
+        {classes.length === 0 ? (
+          <p className="text-gray-500 text-center py-4">No classes assigned</p>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {classes.map((cls, i) => (
+              <div key={i} className="bg-white p-4 rounded-lg border">
+                <h4 className="font-semibold text-lg">{cls.name}</h4>
+                <p className="text-sm text-gray-500">{cls.section || 'All Sections'}</p>
+                <div className="mt-3 flex justify-between text-sm">
+                  <span className="text-gray-600">Students: <strong>{cls.studentCount || 0}</strong></span>
+                  <span className="text-gray-600">Subjects: <strong>{cls.subjectCount || 0}</strong></span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function StudentPerformanceReport({ data }) {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <MetricCard icon={TrendingUp} label="Overall Grade" value={data?.overallGrade || 'A'} color="green" />
+        <MetricCard icon={Calendar} label="Attendance" value={`${data?.attendance || 92}%`} color="blue" />
+        <MetricCard icon={BookOpen} label="Assignments Done" value={data?.assignmentsDone || 0} color="purple" />
+        <MetricCard icon={ClipboardList} label="Exams Taken" value={data?.examsTaken || 0} color="orange" />
+      </div>
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="bg-gray-50 rounded-xl p-4">
+          <h3 className="font-semibold mb-4">Subject Performance</h3>
+          <div className="space-y-3">
+            {(data?.subjects || [
+              { name: 'Mathematics', score: 85 },
+              { name: 'Science', score: 78 },
+              { name: 'English', score: 92 },
+              { name: 'History', score: 88 }
+            ]).map((subject, i) => (
+              <div key={i}>
+                <div className="flex justify-between text-sm mb-1">
+                  <span>{subject.name}</span>
+                  <span className="font-semibold">{subject.score}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className={`h-2 rounded-full ${subject.score >= 80 ? 'bg-green-500' : subject.score >= 60 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${subject.score}%` }}></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="bg-gray-50 rounded-xl p-4">
+          <h3 className="font-semibold mb-4">Recent Exams</h3>
+          <div className="space-y-2">
+            {(data?.recentExams || [
+              { name: 'Mid-term Math', score: '85/100', date: '2024-01-15' },
+              { name: 'Science Quiz', score: '18/20', date: '2024-01-12' },
+              { name: 'English Essay', score: '45/50', date: '2024-01-10' }
+            ]).map((exam, i) => (
+              <div key={i} className="flex justify-between items-center p-2 bg-white rounded">
+                <div>
+                  <p className="font-medium text-sm">{exam.name}</p>
+                  <p className="text-xs text-gray-500">{exam.date}</p>
+                </div>
+                <span className="font-semibold text-green-600">{exam.score}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { toast } from 'react-toastify'
 import {
   BookOpen, Plus, Search, Calendar, Clock,
-  Users, CheckCircle, AlertCircle, Eye, Edit, Trash2, FileText
+  Users, CheckCircle, AlertCircle, Eye, Edit, Trash2, FileText, Send, X, Award
 } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { TableSkeleton } from '../../../components/ui/Loading'
@@ -21,6 +21,11 @@ export default function HomeworkList() {
   const navigate = useNavigate()
   const { user, isPlatformAdmin } = useAuth()
   const [institutionId, setInstitutionId] = useState(user?.institution?._id || user?.institution || null)
+  
+  const isStudent = user?.role === 'student'
+  const isParent = user?.role === 'parent'
+  const isStudentOrParent = isStudent || isParent
+  const canManage = ['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher'].includes(user?.role)
   const [loading, setLoading] = useState(true)
   const [homework, setHomework] = useState([])
   const [classes, setClasses] = useState([])
@@ -33,6 +38,8 @@ export default function HomeworkList() {
     search: ''
   })
   const [stats, setStats] = useState({ totalHomework: 0, totalSubmissions: 0, byStatus: {} })
+  const [viewingHomework, setViewingHomework] = useState(null)
+  const [showViewModal, setShowViewModal] = useState(false)
 
   useEffect(() => {
     const fetchInstitution = async () => {
@@ -96,7 +103,9 @@ export default function HomeworkList() {
         limit: pagination.limit,
         ...(filters.classId && { classId: filters.classId }),
         ...(filters.subjectId && { subjectId: filters.subjectId }),
-        ...(filters.status && { status: filters.status })
+        ...(filters.status && { status: filters.status }),
+        // For students, only show published assignments for their class
+        ...(isStudentOrParent && { status: 'published' })
       }
       const response = await homeworkApi.getAll(params)
       setHomework(response.data || [])
@@ -159,15 +168,17 @@ export default function HomeworkList() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Homework & Assignments</h1>
-          <p className="text-gray-500 mt-1">Manage and track homework assignments</p>
+          <h1 className="text-2xl font-bold text-gray-900">{isStudentOrParent ? 'My Assignments' : 'Homework & Assignments'}</h1>
+          <p className="text-gray-500 mt-1">{isStudentOrParent ? 'View and submit your assignments' : 'Manage and track homework assignments'}</p>
         </div>
-        <button
-          onClick={() => navigate('/dashboard/homework/new')}
-          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" /> Create Assignment
-        </button>
+        {canManage && (
+          <button
+            onClick={() => navigate('/dashboard/homework/new')}
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> Create Assignment
+          </button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -297,13 +308,15 @@ export default function HomeworkList() {
           <div className="p-12 text-center text-gray-500">
             <BookOpen className="w-12 h-12 mx-auto mb-4 text-gray-300" />
             <p className="font-medium">No Homework Found</p>
-            <p className="text-sm mt-1">Create your first assignment to get started</p>
-            <button
-              onClick={() => navigate('/dashboard/homework/new')}
-              className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition inline-flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" /> Create Assignment
-            </button>
+            <p className="text-sm mt-1">{isStudentOrParent ? 'No assignments have been assigned yet' : 'Create your first assignment to get started'}</p>
+            {canManage && (
+              <button
+                onClick={() => navigate('/dashboard/homework/new')}
+                className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition inline-flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" /> Create Assignment
+              </button>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -369,26 +382,44 @@ export default function HomeworkList() {
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1">
                           <button
-                            onClick={() => navigate(`/dashboard/homework/${hw._id}`)}
+                            onClick={(e) => { 
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setViewingHomework(hw)
+                              setShowViewModal(true) 
+                            }}
                             className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition"
                             title="View Details"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => navigate(`/dashboard/homework/${hw._id}/edit`)}
-                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                            title="Edit"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(hw._id)}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {isStudent && hw.status === 'published' && (
+                            <button
+                              onClick={() => navigate(`/dashboard/homework/${hw._id}?submit=true`)}
+                              className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition"
+                              title="Submit Assignment"
+                            >
+                              <Send className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canManage && (
+                            <>
+                              <button
+                                onClick={() => navigate(`/dashboard/homework/${hw._id}/edit`)}
+                                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                title="Edit"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(hw._id)}
+                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -409,6 +440,116 @@ export default function HomeworkList() {
           itemName="assignments"
         />
       </motion.div>
+
+      {/* View Homework Modal */}
+      {showViewModal && viewingHomework && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
+          >
+            <div className="p-4 border-b flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Assignment Details</h2>
+              <button 
+                onClick={() => { setShowViewModal(false); setViewingHomework(null) }} 
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(90vh-130px)]">
+              {/* Title & Class */}
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">{viewingHomework.title}</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {viewingHomework.class?.name} {viewingHomework.section?.name ? `- ${viewingHomework.section.name}` : ''} • {viewingHomework.subject?.name}
+                </p>
+              </div>
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-blue-50 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-blue-600" />
+                    <span className="text-xs text-blue-600">Due Date</span>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-900 mt-1">
+                    {new Date(viewingHomework.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
+                <div className="bg-green-50 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-green-600" />
+                    <span className="text-xs text-green-600">Submissions</span>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-900 mt-1">{viewingHomework.submissions?.length || 0}</p>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Award className="w-4 h-4 text-purple-600" />
+                    <span className="text-xs text-purple-600">Max Score</span>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-900 mt-1">{viewingHomework.maxScore} points</p>
+                </div>
+                <div className="bg-amber-50 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-600" />
+                    <span className="text-xs text-amber-600">Status</span>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-900 mt-1 capitalize">{viewingHomework.status}</p>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Instructions</label>
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 min-h-[100px]">
+                  <p className="text-gray-700 whitespace-pre-wrap">{viewingHomework.description || 'No instructions provided'}</p>
+                </div>
+              </div>
+
+              {/* Assigned By */}
+              <div className="text-sm text-gray-500">
+                <p>Assigned by: {viewingHomework.assignedBy?.profile?.firstName} {viewingHomework.assignedBy?.profile?.lastName}</p>
+                <p>Created: {new Date(viewingHomework.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+              </div>
+            </div>
+            <div className="p-4 border-t flex gap-3">
+              <button
+                onClick={() => { setShowViewModal(false); setViewingHomework(null) }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Close
+              </button>
+              {isStudent && viewingHomework.status === 'published' && (
+                <button
+                  onClick={() => {
+                    setShowViewModal(false)
+                    setViewingHomework(null)
+                    navigate(`/dashboard/homework/${viewingHomework._id}?submit=true`)
+                  }}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
+                >
+                  <Send className="w-4 h-4" /> Submit Assignment
+                </button>
+              )}
+              {canManage && (
+                <button
+                  onClick={() => {
+                    setShowViewModal(false)
+                    setViewingHomework(null)
+                    navigate(`/dashboard/homework/${viewingHomework._id}`)
+                  }}
+                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                >
+                  View Submissions
+                </button>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }

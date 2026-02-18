@@ -52,7 +52,13 @@ const menuItems = [
     title: 'Attendance',
     icon: Calendar,
     path: '/dashboard/attendance',
-    roles: ['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher', 'student', 'parent']
+    roles: ['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher']
+  },
+  {
+    title: 'My Attendance',
+    icon: Calendar,
+    path: '/dashboard/my-attendance',
+    roles: ['student', 'parent']
   },
   {
     title: 'Homework',
@@ -71,8 +77,11 @@ const menuItems = [
       { title: 'Exams', path: '/dashboard/exams' },
       { title: 'Results', path: '/dashboard/exams/results' },
       { title: 'Report Cards', path: '/dashboard/exams/reports' },
-      { title: 'Question Generator', path: '/dashboard/exams/question-generator', roles: ['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher'] }
-    ]
+      { title: 'Question Generator', path: '/dashboard/exams/question-generator' }
+    ],
+    submenuRoles: {
+      'Question Generator': ['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher']
+    }
   },
   {
     title: 'Fee Management',
@@ -220,7 +229,15 @@ export default function Sidebar({ collapsed, setCollapsed, userRole = 'instituti
                         exit={{ height: 0, opacity: 0 }}
                         className="overflow-hidden ml-4 mt-1 space-y-1"
                       >
-                        {item.submenu.map((subitem) => (
+                        {item.submenu
+                          .filter(subitem => {
+                            // Check if submenu has role restrictions
+                            if (item.submenuRoles && item.submenuRoles[subitem.title]) {
+                              return item.submenuRoles[subitem.title].includes(userRole)
+                            }
+                            return true
+                          })
+                          .map((subitem) => (
                           <li key={subitem.path}>
                             <Link
                               to={subitem.path}

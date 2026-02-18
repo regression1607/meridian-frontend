@@ -9,6 +9,7 @@ import {
 import { examinationsApi, classesApi, subjectsApi, usersApi } from '../../../services/api'
 import { toast } from 'react-toastify'
 import Pagination from '../../../components/ui/Pagination'
+import { useAuth } from '../../../context/AuthContext'
 
 const examTypes = [
   { value: 'unit_test', label: 'Unit Test' },
@@ -30,6 +31,12 @@ const statusColors = {
 }
 
 export default function ExamManagement() {
+  const { user } = useAuth()
+  const isStudent = user?.role === 'student'
+  const isParent = user?.role === 'parent'
+  const isStudentOrParent = isStudent || isParent
+  const canManage = ['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher'].includes(user?.role)
+  
   const [exams, setExams] = useState([])
   const [loading, setLoading] = useState(true)
   const [classes, setClasses] = useState([])
@@ -56,19 +63,31 @@ export default function ExamManagement() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [examsRes, classesRes, subjectsRes, teachersRes, statsRes] = await Promise.all([
+      // Students don't need teachers/stats data - only fetch exams and basic filters
+      const promises = [
         examinationsApi.getExams({ ...filters, page: pagination.page, limit: pagination.limit }),
         classesApi.getAll({ limit: 100 }),
-        subjectsApi.getAll({ limit: 100 }),
-        usersApi.getAll({ role: 'teacher', limit: 100 }),
-        examinationsApi.getExamStats({})
-      ])
+        subjectsApi.getAll({ limit: 100 })
+      ]
+      
+      // Only fetch teachers and stats for managers (not students)
+      if (canManage) {
+        promises.push(usersApi.getAll({ role: 'teacher', limit: 100 }))
+        promises.push(examinationsApi.getExamStats({}))
+      }
+      
+      const results = await Promise.all(promises)
+      const [examsRes, classesRes, subjectsRes] = results
+      
       setExams(examsRes.data || [])
       setPagination(prev => ({ ...prev, ...examsRes.meta }))
       setClasses(classesRes.data || [])
       setSubjects(subjectsRes.data || [])
-      setTeachers(teachersRes.data || [])
-      setStats(statsRes.data)
+      
+      if (canManage) {
+        setTeachers(results[3]?.data || [])
+        setStats(results[4]?.data)
+      }
     } catch (error) {
       toast.error('Failed to fetch exams')
     } finally {
@@ -122,20 +141,22 @@ export default function ExamManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Exam Management</h1>
-          <p className="text-gray-500 mt-1">Schedule and manage examinations</p>
+          <h1 className="text-2xl font-bold text-gray-900">{isStudentOrParent ? 'My Exams' : 'Exam Management'}</h1>
+          <p className="text-gray-500 mt-1">{isStudentOrParent ? 'View your upcoming and past examinations' : 'Schedule and manage examinations'}</p>
         </div>
-        <button
-          onClick={() => { setEditingExam(null); setShowModal(true) }}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-        >
-          <Plus className="w-5 h-5" />
-          Schedule Exam
-        </button>
+        {canManage && (
+          <button
+            onClick={() => { setEditingExam(null); setShowModal(true) }}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+          >
+            <Plus className="w-5 h-5" />
+            Schedule Exam
+          </button>
+        )}
       </div>
 
-      {/* Stats */}
-      {stats && (
+      {/* Stats - Only show for managers */}
+      {canManage && stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <StatCard icon={ClipboardList} label="Total Exams" value={stats.totalExams} color="blue" />
           <StatCard icon={FileText} label="Total Results" value={stats.totalResults} color="green" />
@@ -237,12 +258,16 @@ export default function ExamManagement() {
                         <button onClick={() => openView(exam)} className="p-1 hover:bg-gray-100 rounded">
                           <Eye className="w-4 h-4 text-gray-500" />
                         </button>
-                        <button onClick={() => openEdit(exam)} className="p-1 hover:bg-gray-100 rounded">
-                          <Edit2 className="w-4 h-4 text-blue-500" />
-                        </button>
-                        <button onClick={() => handleDelete(exam)} className="p-1 hover:bg-gray-100 rounded">
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </button>
+                        {canManage && (
+                          <>
+                            <button onClick={() => openEdit(exam)} className="p-1 hover:bg-gray-100 rounded">
+                              <Edit2 className="w-4 h-4 text-blue-500" />
+                            </button>
+                            <button onClick={() => handleDelete(exam)} className="p-1 hover:bg-gray-100 rounded">
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

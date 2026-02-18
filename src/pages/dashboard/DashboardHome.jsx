@@ -8,8 +8,9 @@ import {
   Wallet, Building, UserPlus, Check
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { preferencesApi, reportsApi, eventsApi, libraryApi, hostelApi, payrollApi, transportApi, admissionsApi } from '../../services/api'
+import { preferencesApi, reportsApi, eventsApi, libraryApi, hostelApi, payrollApi, transportApi, admissionsApi, classesApi } from '../../services/api'
 import { WIDGET_COMPONENTS } from '../../components/dashboard/widgets'
+import Modal from '../../components/ui/Modal'
 
 const ICON_MAP = {
   BarChart3, Users, DollarSign, Calendar, Activity, Bell, Cake, BookOpen,
@@ -46,11 +47,15 @@ export default function DashboardHome() {
   const loadPreferences = async () => {
     try {
       const res = await preferencesApi.get()
-      if (res.success && res.data?.dashboard?.widgets) {
+      if (res.success && res.data?.dashboard?.widgets?.length > 0) {
+        // Load saved preferences
         const visibleWidgets = res.data.dashboard.widgets
           .filter(w => w.visible)
           .sort((a, b) => a.position - b.position)
         setWidgets(visibleWidgets)
+      } else {
+        // No saved preferences, use role-specific defaults
+        setWidgets(getDefaultWidgets())
       }
     } catch (err) {
       console.error('Failed to load preferences:', err)
@@ -63,8 +68,29 @@ export default function DashboardHome() {
   const loadAvailableWidgets = async () => {
     try {
       const res = await preferencesApi.getAvailableWidgets()
-      if (res.success) setAvailableWidgets(res.data || [])
+      if (res.success) {
+        // Filter widgets based on user role
+        const allWidgets = res.data || []
+        const filtered = filterWidgetsByRole(allWidgets, user?.role)
+        setAvailableWidgets(filtered)
+      }
     } catch (err) { console.error(err) }
+  }
+
+  const filterWidgetsByRole = (widgets, role) => {
+    // Define which widget types are allowed for each role
+    const roleWidgets = {
+      super_admin: ['stats', 'attendance', 'fees', 'events', 'activities', 'calendar', 'announcements', 'birthdays', 'library', 'transport', 'homework', 'exams', 'payroll', 'hostel', 'admissions', 'performance'],
+      admin: ['stats', 'attendance', 'fees', 'events', 'activities', 'calendar', 'announcements', 'birthdays', 'library', 'transport', 'homework', 'exams', 'payroll', 'hostel', 'admissions', 'performance'],
+      institution_admin: ['stats', 'attendance', 'fees', 'events', 'activities', 'calendar', 'announcements', 'birthdays', 'library', 'transport', 'homework', 'exams', 'payroll', 'hostel', 'admissions', 'performance'],
+      teacher: ['teacherClasses', 'attendance', 'homework', 'exams', 'events', 'calendar', 'announcements', 'library', 'performance'],
+      student: ['attendance', 'homework', 'exams', 'events', 'calendar', 'announcements', 'library', 'performance'],
+      parent: ['attendance', 'fees', 'events', 'announcements', 'performance', 'calendar'],
+      staff: ['stats', 'events', 'activities', 'calendar', 'announcements', 'birthdays']
+    }
+    
+    const allowedTypes = roleWidgets[role] || ['events', 'calendar', 'announcements']
+    return widgets.filter(w => allowedTypes.includes(w.type))
   }
 
   const loadWidgetData = async () => {
@@ -77,10 +103,11 @@ export default function DashboardHome() {
         hostelApi.getStats(),
         payrollApi.getStats(),
         transportApi.getStats(),
-        admissionsApi.getStats()
+        admissionsApi.getStats(),
+        classesApi.getAll()
       ])
 
-      const [dashboardRes, eventsRes, libraryRes, hostelRes, payrollRes, transportRes, admissionsRes] = results
+      const [dashboardRes, eventsRes, libraryRes, hostelRes, payrollRes, transportRes, admissionsRes, classesRes] = results
 
       const dashboardData = dashboardRes.status === 'fulfilled' ? dashboardRes.value?.data : {}
       const eventsData = eventsRes.status === 'fulfilled' ? eventsRes.value?.data : []
@@ -89,6 +116,7 @@ export default function DashboardHome() {
       const payrollData = payrollRes.status === 'fulfilled' ? payrollRes.value?.data : {}
       const transportData = transportRes.status === 'fulfilled' ? transportRes.value?.data : {}
       const admissionsData = admissionsRes.status === 'fulfilled' ? admissionsRes.value?.data : {}
+      const classesData = classesRes.status === 'fulfilled' ? classesRes.value?.data : []
 
       setWidgetData({
         stats: {
@@ -141,20 +169,75 @@ export default function DashboardHome() {
           enrolled: admissionsData?.approved || admissionsData?.enrolled || 0,
           pending: admissionsData?.pending || admissionsData?.underReview || 0
         },
-        performance: { subjects: dashboardData?.subjectPerformance || [] }
+        performance: { subjects: dashboardData?.subjectPerformance || [] },
+        teacherClasses: { classes: classesData || [] }
       })
     } catch (err) { 
       console.error('Error loading widget data:', err) 
     }
   }
 
-  const getDefaultWidgets = () => [
-    { id: 'stats-overview', type: 'stats', title: 'Quick Stats', size: 'full', position: 0, visible: true },
-    { id: 'attendance-today', type: 'attendance', title: "Today's Attendance", size: 'medium', position: 1, visible: true },
-    { id: 'fee-collection', type: 'fees', title: 'Fee Collection', size: 'medium', position: 2, visible: true },
-    { id: 'upcoming-events', type: 'events', title: 'Upcoming Events', size: 'medium', position: 3, visible: true },
-    { id: 'recent-activities', type: 'activities', title: 'Recent Activities', size: 'medium', position: 4, visible: true }
-  ]
+  const getDefaultWidgets = () => {
+    const role = user?.role
+    
+    // Admin/Institution Admin - Full dashboard
+    if (['super_admin', 'admin', 'institution_admin'].includes(role)) {
+      return [
+        { id: 'stats-overview', type: 'stats', title: 'Quick Stats', size: 'full', position: 0, visible: true },
+        { id: 'attendance-today', type: 'attendance', title: "Today's Attendance", size: 'medium', position: 1, visible: true },
+        { id: 'fee-collection', type: 'fees', title: 'Fee Collection', size: 'medium', position: 2, visible: true },
+        { id: 'upcoming-events', type: 'events', title: 'Upcoming Events', size: 'medium', position: 3, visible: true },
+        { id: 'recent-activities', type: 'activities', title: 'Recent Activities', size: 'medium', position: 4, visible: true }
+      ]
+    }
+    
+    // Teacher dashboard
+    if (role === 'teacher') {
+      return [
+        { id: 'my-classes', type: 'teacherClasses', title: 'My Classes', size: 'large', position: 0, visible: true },
+        { id: 'attendance-today', type: 'attendance', title: "Today's Attendance", size: 'medium', position: 1, visible: true },
+        { id: 'homework-pending', type: 'homework', title: 'Homework Status', size: 'medium', position: 2, visible: true },
+        { id: 'upcoming-events', type: 'events', title: 'Upcoming Events', size: 'medium', position: 3, visible: true },
+        { id: 'upcoming-exams', type: 'exams', title: 'Upcoming Exams', size: 'medium', position: 4, visible: true }
+      ]
+    }
+    
+    // Student dashboard
+    if (role === 'student') {
+      return [
+        { id: 'my-attendance', type: 'attendance', title: 'My Attendance', size: 'medium', position: 0, visible: true },
+        { id: 'homework-pending', type: 'homework', title: 'My Homework', size: 'medium', position: 1, visible: true },
+        { id: 'upcoming-exams', type: 'exams', title: 'Upcoming Exams', size: 'medium', position: 2, visible: true },
+        { id: 'upcoming-events', type: 'events', title: 'Upcoming Events', size: 'medium', position: 3, visible: true },
+        { id: 'my-performance', type: 'performance', title: 'My Performance', size: 'large', position: 4, visible: true }
+      ]
+    }
+    
+    // Parent dashboard
+    if (role === 'parent') {
+      return [
+        { id: 'child-attendance', type: 'attendance', title: "Child's Attendance", size: 'medium', position: 0, visible: true },
+        { id: 'fee-status', type: 'fees', title: 'Fee Status', size: 'medium', position: 1, visible: true },
+        { id: 'upcoming-events', type: 'events', title: 'School Events', size: 'medium', position: 2, visible: true },
+        { id: 'child-performance', type: 'performance', title: "Child's Performance", size: 'large', position: 3, visible: true }
+      ]
+    }
+    
+    // Staff dashboard
+    if (role === 'staff') {
+      return [
+        { id: 'stats-overview', type: 'stats', title: 'Quick Stats', size: 'large', position: 0, visible: true },
+        { id: 'upcoming-events', type: 'events', title: 'Upcoming Events', size: 'medium', position: 1, visible: true },
+        { id: 'recent-activities', type: 'activities', title: 'Recent Activities', size: 'medium', position: 2, visible: true }
+      ]
+    }
+    
+    // Default fallback
+    return [
+      { id: 'upcoming-events', type: 'events', title: 'Upcoming Events', size: 'medium', position: 0, visible: true },
+      { id: 'recent-activities', type: 'activities', title: 'Recent Activities', size: 'medium', position: 1, visible: true }
+    ]
+  }
 
   const handleReorder = (newOrder) => {
     const updated = newOrder.map((widget, index) => ({ ...widget, position: index }))
@@ -185,9 +268,13 @@ export default function DashboardHome() {
     const updated = [...widgets, newWidget]
     setWidgets(updated)
     try {
-      await preferencesApi.addWidget(newWidget)
+      // Save all widgets to ensure persistence
+      await preferencesApi.updateWidgets(updated)
       toast.success('Widget added!')
-    } catch (err) { console.error(err) }
+    } catch (err) { 
+      console.error(err)
+      toast.error('Failed to save widget')
+    }
     setShowAddWidget(false)
   }
 
@@ -195,9 +282,13 @@ export default function DashboardHome() {
     const updated = widgets.filter(w => w.id !== widgetId)
     setWidgets(updated)
     try {
-      await preferencesApi.removeWidget(widgetId)
+      // Save all widgets to ensure persistence
+      await preferencesApi.updateWidgets(updated)
       toast.success('Widget removed')
-    } catch (err) { console.error(err) }
+    } catch (err) { 
+      console.error(err)
+      toast.error('Failed to remove widget')
+    }
   }
 
   const changeWidgetSize = (widgetId, size) => {
@@ -208,11 +299,22 @@ export default function DashboardHome() {
   const resetDashboard = async () => {
     if (!confirm('Reset dashboard to default layout?')) return
     try {
-      await preferencesApi.resetToDefault()
-      setWidgets(getDefaultWidgets())
+      const res = await preferencesApi.resetToDefault()
+      // Use the widgets returned from backend (role-specific defaults)
+      if (res.success && res.data?.dashboard?.widgets) {
+        const visibleWidgets = res.data.dashboard.widgets
+          .filter(w => w.visible)
+          .sort((a, b) => a.position - b.position)
+        setWidgets(visibleWidgets)
+      } else {
+        setWidgets(getDefaultWidgets())
+      }
       toast.success('Dashboard reset to default')
       setEditMode(false)
-    } catch (err) { toast.error('Failed to reset') }
+    } catch (err) { 
+      console.error(err)
+      toast.error('Failed to reset') 
+    }
   }
 
   const activeWidgetIds = widgets.map(w => w.id)
@@ -295,36 +397,28 @@ export default function DashboardHome() {
       )}
 
       {/* Add Widget Modal */}
-      {showAddWidget && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-lg font-semibold">Add Widget</h2>
-              <button onClick={() => setShowAddWidget(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
+      <Modal isOpen={showAddWidget} onClose={() => setShowAddWidget(false)} title="Add Widget" maxWidth="max-w-2xl">
+        <div className="p-4 overflow-y-auto max-h-[60vh]">
+          {addableWidgets.length === 0 ? (
+            <p className="text-center text-gray-500 py-8">All widgets are already on your dashboard</p>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {addableWidgets.map((widget) => {
+                const IconComp = ICON_MAP[widget.icon] || BarChart3
+                return (
+                  <button key={widget.id} onClick={() => addWidget(widget)} className="p-4 border rounded-xl hover:border-primary-500 hover:bg-primary-50 text-left transition-all">
+                    <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center mb-3">
+                      <IconComp className="w-5 h-5 text-primary-600" />
+                    </div>
+                    <p className="font-medium text-sm">{widget.title}</p>
+                    <p className="text-xs text-gray-500 mt-1">{widget.description}</p>
+                  </button>
+                )
+              })}
             </div>
-            <div className="p-4 overflow-y-auto max-h-[60vh]">
-              {addableWidgets.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">All widgets are already on your dashboard</p>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {addableWidgets.map((widget) => {
-                    const IconComp = ICON_MAP[widget.icon] || BarChart3
-                    return (
-                      <button key={widget.id} onClick={() => addWidget(widget)} className="p-4 border rounded-xl hover:border-primary-500 hover:bg-primary-50 text-left transition-all">
-                        <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center mb-3">
-                          <IconComp className="w-5 h-5 text-primary-600" />
-                        </div>
-                        <p className="font-medium text-sm">{widget.title}</p>
-                        <p className="text-xs text-gray-500 mt-1">{widget.description}</p>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </motion.div>
+          )}
         </div>
-      )}
+      </Modal>
     </div>
   )
 }

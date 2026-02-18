@@ -8,6 +8,7 @@ import {
 import { examinationsApi, classesApi } from '../../../services/api'
 import { toast } from 'react-toastify'
 import Pagination from '../../../components/ui/Pagination'
+import { useAuth } from '../../../context/AuthContext'
 
 const gradeColors = {
   'A+': 'bg-green-100 text-green-700',
@@ -29,6 +30,12 @@ const statusColors = {
 }
 
 export default function ReportCards() {
+  const { user } = useAuth()
+  const isStudent = user?.role === 'student'
+  const isParent = user?.role === 'parent'
+  const isStudentOrParent = isStudent || isParent
+  const canManage = ['super_admin', 'admin', 'institution_admin', 'coordinator', 'teacher'].includes(user?.role)
+  
   const [reportCards, setReportCards] = useState([])
   const [loading, setLoading] = useState(true)
   const [classes, setClasses] = useState([])
@@ -73,8 +80,15 @@ export default function ReportCards() {
   const fetchData = async () => {
     try {
       setLoading(true)
+      // For students, only fetch their own report cards
+      const reportsParams = {
+        ...filters,
+        page: pagination.page,
+        limit: pagination.limit,
+        ...(isStudent && { studentId: user._id })
+      }
       const [reportsRes, classesRes] = await Promise.all([
-        examinationsApi.getReportCards({ ...filters, page: pagination.page, limit: pagination.limit }),
+        examinationsApi.getReportCards(reportsParams),
         classesApi.getAll({ limit: 100 })
       ])
       setReportCards(reportsRes.data || [])
@@ -217,8 +231,8 @@ export default function ReportCards() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Report Cards</h1>
-          <p className="text-gray-500 mt-1">Generate and manage student report cards</p>
+          <h1 className="text-2xl font-bold text-gray-900">{isStudentOrParent ? 'My Report Cards' : 'Report Cards'}</h1>
+          <p className="text-gray-500 mt-1">{isStudentOrParent ? 'View and download your report cards' : 'Generate and manage student report cards'}</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -229,13 +243,15 @@ export default function ReportCards() {
             <Download className="w-5 h-5" />
             Download All
           </button>
-          <button
-            onClick={() => setShowGenerateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-          >
-            <RefreshCw className="w-5 h-5" />
-            Generate Report Cards
-          </button>
+          {canManage && (
+            <button
+              onClick={() => setShowGenerateModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+            >
+              <RefreshCw className="w-5 h-5" />
+              Generate Report Cards
+            </button>
+          )}
         </div>
       </div>
 
