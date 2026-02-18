@@ -324,7 +324,11 @@ export default function HomeworkDetail() {
                               {submission.student?.profile?.firstName} {submission.student?.profile?.lastName}
                             </p>
                             <p className="text-xs text-gray-500">
-                              Roll: {submission.student?.studentData?.rollNumber || '-'}
+                              {submission.student?.studentData?.rollNumber 
+                                ? `Roll: ${submission.student.studentData.rollNumber}` 
+                                : submission.student?.studentData?.admissionNumber 
+                                  ? `Adm: ${submission.student.studentData.admissionNumber}`
+                                  : submission.student?.email || '-'}
                             </p>
                           </div>
                         </div>
@@ -518,7 +522,11 @@ export default function HomeworkDetail() {
                     {viewingSubmission.student?.profile?.firstName} {viewingSubmission.student?.profile?.lastName}
                   </p>
                   <p className="text-sm text-gray-500">
-                    Roll: {viewingSubmission.student?.studentData?.rollNumber || '-'} • 
+                    {viewingSubmission.student?.studentData?.rollNumber 
+                      ? `Roll: ${viewingSubmission.student.studentData.rollNumber}` 
+                      : viewingSubmission.student?.studentData?.admissionNumber 
+                        ? `Adm: ${viewingSubmission.student.studentData.admissionNumber}`
+                        : viewingSubmission.student?.email || ''} • 
                     Submitted: {formatDate(viewingSubmission.submittedAt)}
                   </p>
                 </div>
