@@ -1,15 +1,17 @@
 import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { toast } from 'react-toastify'
 import {
   Building2, Palette, Bell, Shield, Database,
   Mail, CreditCard, Users, Save, Upload, MessageCircle,
-  Video, Calendar, X, Check, Settings as SettingsIcon
+  Video, Calendar, X, Check, Settings as SettingsIcon, ChevronRight, UserCog
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 
 export default function Settings() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('institution')
   const [saving, setSaving] = useState(false)
   const logoInputRef = useRef(null)
@@ -147,6 +149,21 @@ export default function Settings() {
                 {tab.label}
               </button>
             ))}
+            
+            {/* Divider */}
+            <div className="my-2 border-t border-gray-100" />
+            
+            {/* Quick Links */}
+            <button
+              onClick={() => navigate('/dashboard/settings/roles')}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition"
+            >
+              <div className="flex items-center gap-3">
+                <UserCog className="w-5 h-5" />
+                Roles & Permissions
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-400" />
+            </button>
           </div>
         </div>
 

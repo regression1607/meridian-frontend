@@ -499,6 +499,20 @@ export const aiApi = {
   clearHistory: () => api.delete('/ai/history')
 }
 
+// Roles & Permissions endpoints
+export const rolesApi = {
+  getAll: (params) => api.get('/roles', params),
+  getById: (id, params) => api.get(`/roles/${id}`, params),
+  create: (data) => api.post('/roles', data),
+  update: (id, data) => api.put(`/roles/${id}`, data),
+  updatePermissions: (id, data) => api.patch(`/roles/${id}/permissions`, data),
+  delete: (id, params) => api.delete(`/roles/${id}`, params),
+  clone: (id, data) => api.post(`/roles/${id}/clone`, data),
+  getUsersByRole: (id, params) => api.get(`/roles/${id}/users`, params),
+  initializeDefaults: (data) => api.post('/roles/initialize', data),
+  getMyPermissions: (params) => api.get('/roles/my-permissions', params)
+}
+
 // Question Paper Generator endpoints
 export const questionPaperApi = {
   getAll: (params) => api.get('/question-papers', params),

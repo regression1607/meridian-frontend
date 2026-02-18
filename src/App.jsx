@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import { AuthProvider } from './context/AuthContext'
+import { PermissionProvider } from './context/PermissionContext'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import LandingPage from './pages/public/LandingPage'
 import PrivacyPolicy from './pages/public/PrivacyPolicy'
@@ -28,6 +29,7 @@ import Attendance from './pages/dashboard/Attendance'
 import StudentAttendance from './pages/dashboard/StudentAttendance'
 import Profile from './pages/dashboard/Profile'
 import Settings from './pages/dashboard/Settings'
+import RoleManagement from './pages/dashboard/settings/RoleManagement'
 import ClassesList from './pages/dashboard/academics/ClassesList'
 import SubjectsList from './pages/dashboard/academics/SubjectsList'
 import TimetableView from './pages/dashboard/academics/TimetableView'
@@ -58,8 +60,9 @@ import Help from './pages/dashboard/Help'
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <ToastContainer
+      <PermissionProvider>
+        <Router>
+          <ToastContainer
           position="top-right"
           autoClose={3000}
           hideProgressBar={false}
@@ -310,6 +313,11 @@ function App() {
                 <Settings />
               </ProtectedRoute>
             } />
+            <Route path="settings/roles" element={
+              <ProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin']}>
+                <RoleManagement />
+              </ProtectedRoute>
+            } />
             <Route path="help" element={<Help />} />
             {/* 404 for dashboard routes */}
             <Route path="*" element={<NotFound />} />
@@ -319,7 +327,8 @@ function App() {
           {/* Error Page */}
           <Route path="/error" element={<ErrorPage />} />
         </Routes>
-      </Router>
+        </Router>
+      </PermissionProvider>
     </AuthProvider>
   )
 }

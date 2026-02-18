@@ -5,6 +5,7 @@ import { toast } from 'react-toastify'
 import { ArrowLeft, Save, X, User, Mail, Phone, MapPin, Shield, Building, GraduationCap, Plus, Calendar, Users, Search } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { ButtonLoader, PageLoader } from '../../../components/ui/Loading'
+import { rolesApi } from '../../../services/api'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'
 
@@ -31,6 +32,8 @@ export default function EditUser() {
   const [students, setStudents] = useState([])
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [studentSearch, setStudentSearch] = useState('')
+  const [customRoles, setCustomRoles] = useState([])
+  const [loadingRoles, setLoadingRoles] = useState(false)
   
   const isPlatformAdmin = ['super_admin', 'admin'].includes(currentUser?.role)
   const availableRoles = ALL_ROLES.filter(role => {
@@ -73,7 +76,8 @@ export default function EditUser() {
     parentProfile: {
       relation: '',
       children: []
-    }
+    },
+    customRole: ''
   })
 
   useEffect(() => {
@@ -159,8 +163,14 @@ export default function EditUser() {
           parentProfile: {
             relation: user.parentData?.relation || '',
             children: user.parentData?.children?.map(c => c._id || c) || []
-          }
+          },
+          customRole: user.customRole?._id || user.customRole || ''
         })
+
+        // Fetch custom roles for this institution
+        if (instId) {
+          fetchCustomRoles(instId)
+        }
       }
     } catch (error) {
       toast.error(error.message || 'Failed to fetch user')
@@ -203,6 +213,18 @@ export default function EditUser() {
       console.error('Failed to fetch students:', error)
     } finally {
       setLoadingStudents(false)
+    }
+  }
+
+  const fetchCustomRoles = async (institutionId) => {
+    try {
+      setLoadingRoles(true)
+      const response = await rolesApi.getAll({ institution: institutionId })
+      setCustomRoles(response.data || [])
+    } catch (error) {
+      console.error('Failed to fetch custom roles:', error)
+    } finally {
+      setLoadingRoles(false)
     }
   }
 
@@ -468,6 +490,36 @@ export default function EditUser() {
               </label>
             </div>
           </div>
+
+          {/* Custom Role Assignment */}
+          {customRoles.length > 0 && formData.role !== 'admin' && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <Shield className="w-4 h-4 inline mr-1" />
+                Custom Role (Optional)
+              </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Assign a custom role with specific permissions
+              </p>
+              {loadingRoles ? (
+                <div className="text-gray-500 text-sm">Loading roles...</div>
+              ) : (
+                <select
+                  name="customRole"
+                  value={formData.customRole}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">-- Use Default Role Permissions --</option>
+                  {customRoles.map((role) => (
+                    <option key={role._id} value={role._id}>
+                      {role.name} {role.isDefault ? '(Default)' : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
         </motion.div>
 
         {/* Teacher Information */}

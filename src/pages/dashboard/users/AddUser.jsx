@@ -4,10 +4,11 @@ import { motion } from 'framer-motion'
 import { toast } from 'react-toastify'
 import { 
   ArrowLeft, User, Mail, Phone, Calendar, MapPin, 
-  Save, X, Eye, EyeOff, Building, GraduationCap, Plus, Users, Search
+  Save, X, Eye, EyeOff, Building, GraduationCap, Plus, Users, Search, Shield
 } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { ButtonLoader } from '../../../components/ui/Loading'
+import { rolesApi } from '../../../services/api'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'
 
@@ -38,6 +39,8 @@ export default function AddUser() {
   const [students, setStudents] = useState([])
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [studentSearch, setStudentSearch] = useState('')
+  const [customRoles, setCustomRoles] = useState([])
+  const [loadingRoles, setLoadingRoles] = useState(false)
   
   // Get institution ID from user or set null for platform admins to select
   const userInstitutionId = user?.institution?._id || user?.institution || null
@@ -87,7 +90,8 @@ export default function AddUser() {
       relation: '',
       children: []
     },
-    institutionId: ''
+    institutionId: '',
+    customRole: ''
   })
 
   // Fetch institutions for platform admins
@@ -149,6 +153,14 @@ export default function AddUser() {
     }
   }, [formData.role, formData.institutionId, isPlatformAdmin, userInstitutionId])
 
+  // Fetch custom roles when institution is available
+  useEffect(() => {
+    const instId = isPlatformAdmin ? formData.institutionId : userInstitutionId
+    if (instId) {
+      fetchCustomRoles(instId)
+    }
+  }, [formData.institutionId, isPlatformAdmin, userInstitutionId])
+
   const fetchInstitutions = async () => {
     try {
       setLoadingInstitutions(true)
@@ -182,6 +194,18 @@ export default function AddUser() {
       console.error('Failed to fetch classes:', error)
     } finally {
       setLoadingClasses(false)
+    }
+  }
+
+  const fetchCustomRoles = async (institutionId) => {
+    try {
+      setLoadingRoles(true)
+      const response = await rolesApi.getAll({ institution: institutionId })
+      setCustomRoles(response.data || [])
+    } catch (error) {
+      console.error('Failed to fetch custom roles:', error)
+    } finally {
+      setLoadingRoles(false)
     }
   }
 
@@ -495,6 +519,41 @@ export default function AddUser() {
                 {institutions.map((inst) => (
                   <option key={inst._id} value={inst._id}>
                     {inst.name} ({inst.code})
+                  </option>
+                ))}
+              </select>
+            )}
+          </motion.div>
+        )}
+
+        {/* Custom Role Assignment - Show if roles are available */}
+        {customRoles.length > 0 && formData.role !== 'admin' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.07 }}
+            className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm"
+          >
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              Custom Role (Optional)
+            </h2>
+            <p className="text-sm text-gray-500 mb-3">
+              Assign a custom role with specific permissions. Leave empty to use default permissions for the selected role.
+            </p>
+            {loadingRoles ? (
+              <div className="text-gray-500">Loading roles...</div>
+            ) : (
+              <select
+                name="customRole"
+                value={formData.customRole}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">-- Use Default Role Permissions --</option>
+                {customRoles.map((role) => (
+                  <option key={role._id} value={role._id}>
+                    {role.name} {role.isDefault ? '(Default)' : ''}
                   </option>
                 ))}
               </select>
