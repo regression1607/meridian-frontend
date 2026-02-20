@@ -4,6 +4,7 @@ import {
   ArrowLeft, Target, Eye, Heart, Users, Award, Globe,
   Lightbulb, Shield, Zap, GraduationCap
 } from 'lucide-react'
+import { SEOHead } from '../../components/seo'
 
 const values = [
   {
@@ -57,6 +58,13 @@ const team = [
 export default function AboutUs() {
   return (
     <div className="min-h-screen bg-white">
+      <SEOHead
+        title="About Us - Meridian EMS | AI-Powered Education Management"
+        description="Learn about Meridian EMS - the AI-powered Education Management System transforming how schools, colleges & universities manage their operations. Our mission, vision & values."
+        keywords="about meridian ems, education management company, school software company, AI education platform"
+        canonicalUrl="https://meridiancms.tech/about"
+      />
+      
       {/* Header */}
       <header className="bg-gradient-to-br from-primary-600 to-indigo-700 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

@@ -9,6 +9,8 @@ import {
   Smartphone, Monitor, ArrowRight, Mail, Phone, MapPin
 } from 'lucide-react'
 import config from '../../config'
+import { SEOHead } from '../../components/seo'
+import { AdResponsive, AdBanner } from '../../components/ads'
 
 const features = [
   {
@@ -182,6 +184,13 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <SEOHead
+        title="Meridian EMS - AI-Powered Education Management System for Schools & Colleges"
+        description="Transform your institution with Meridian EMS - the complete AI-powered Education Management System. Manage students, teachers, attendance, fees, exams, homework & more. Used by 500+ schools. Start free trial today!"
+        keywords="education management system, school management software, college ERP, student management, attendance tracking, fee management, AI education, school ERP India, best school software"
+        canonicalUrl="https://meridiancms.tech/"
+      />
+      
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -349,6 +358,11 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* AdSense Banner - Top */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <AdBanner className="py-4" />
+      </div>
 
       {/* Features Section */}
       <section id="features" className="py-16 md:py-24">
@@ -836,6 +850,11 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* AdSense Banner - Before Contact */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <AdResponsive />
+      </div>
 
       {/* Contact / Notify Section */}
       <section id="contact" className="py-16 md:py-24 bg-gray-50">

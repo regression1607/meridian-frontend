@@ -1,9 +1,17 @@
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Shield } from 'lucide-react'
+import { SEOHead } from '../../components/seo'
 
 export default function PrivacyPolicy() {
   return (
     <div className="min-h-screen bg-white">
+      <SEOHead
+        title="Privacy Policy - Meridian EMS"
+        description="Read Meridian EMS Privacy Policy. Learn how we collect, use, and protect your data in our Education Management System."
+        keywords="privacy policy, data protection, meridian ems privacy, education data security"
+        canonicalUrl="https://meridiancms.tech/privacy"
+      />
+      
       {/* Header */}
       <header className="bg-gray-50 border-b border-gray-100">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

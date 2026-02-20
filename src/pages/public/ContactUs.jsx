@@ -5,6 +5,7 @@ import {
   ArrowLeft, Mail, Phone, MapPin, Clock, Send, 
   MessageSquare, Headphones, Building2 
 } from 'lucide-react'
+import { SEOHead } from '../../components/seo'
 
 export default function ContactUs() {
   const [formData, setFormData] = useState({
@@ -28,6 +29,13 @@ export default function ContactUs() {
 
   return (
     <div className="min-h-screen bg-white">
+      <SEOHead
+        title="Contact Us - Meridian EMS | Get in Touch"
+        description="Contact Meridian EMS for inquiries about our AI-powered Education Management System. Get support, request a demo, or learn more about our school management software."
+        keywords="contact meridian ems, school software support, education management demo, school ERP contact"
+        canonicalUrl="https://meridiancms.tech/contact"
+      />
+      
       {/* Header */}
       <header className="bg-gradient-to-br from-primary-600 to-indigo-700 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

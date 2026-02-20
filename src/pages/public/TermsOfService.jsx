@@ -1,9 +1,17 @@
 import { Link } from 'react-router-dom'
 import { ArrowLeft, FileText } from 'lucide-react'
+import { SEOHead } from '../../components/seo'
 
 export default function TermsOfService() {
   return (
     <div className="min-h-screen bg-white">
+      <SEOHead
+        title="Terms of Service - Meridian EMS"
+        description="Read Meridian EMS Terms of Service. Understand the terms and conditions for using our Education Management System."
+        keywords="terms of service, terms and conditions, meridian ems terms, user agreement"
+        canonicalUrl="https://meridiancms.tech/terms"
+      />
+      
       {/* Header */}
       <header className="bg-gray-50 border-b border-gray-100">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
