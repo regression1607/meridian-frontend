@@ -892,10 +892,10 @@ export default function LandingPage() {
             </p>
 
             <div className="mt-12 flex flex-col md:flex-row justify-center items-center gap-6 text-gray-600">
-              <div className="flex items-center gap-2">
+              <a href={`mailto:${config.contactEmail}`} className="flex items-center gap-2 hover:text-primary-600 transition">
                 <Mail className="w-5 h-5 text-primary-600" />
                 <span>{config.contactEmail}</span>
-              </div>
+              </a>
               {config.contactPhone && (
                 <div className="flex items-center gap-2">
                   <Phone className="w-5 h-5 text-primary-600" />
@@ -951,9 +951,11 @@ export default function LandingPage() {
             <div>
               <h4 className="text-white font-semibold mb-4">Contact</h4>
               <ul className="space-y-2 text-sm">
-                <li className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-primary-400" />
-                  <span>{config.contactEmail}</span>
+                <li>
+                  <a href={`mailto:${config.contactEmail}`} className="flex items-center gap-2 hover:text-white transition">
+                    <Mail className="w-4 h-4 text-primary-400" />
+                    <span>{config.contactEmail}</span>
+                  </a>
                 </li>
                 {config.contactPhone && (
                   <li className="flex items-center gap-2">

@@ -89,7 +89,7 @@ export default function ContactUs() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">Email</h3>
-                  <p className="text-gray-600">ekanshrajput1607@gmail.com</p>
+                  <a href="mailto:ekanshrajput1607@gmail.com" className="text-primary-600 hover:text-primary-700 transition">ekanshrajput1607@gmail.com</a>
                 </div>
               </motion.div>
 
