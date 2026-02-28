@@ -961,10 +961,12 @@ export default function LandingPage() {
                     <span>{config.contactPhone}</span>
                   </li>
                 )}
-                <li className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-primary-400" />
-                  <span>{config.companyAddress}</span>
-                </li>
+                {config.companyAddress && (
+                  <li className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-primary-400" />
+                    <span>{config.companyAddress}</span>
+                  </li>
+                )}
               </ul>
             </div>
           </div>

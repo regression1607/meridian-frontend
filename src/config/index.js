@@ -16,7 +16,7 @@ const config = {
   supportPhone: import.meta.env.VITE_SUPPORT_PHONE || '',
   contactEmail: import.meta.env.VITE_CONTACT_EMAIL || 'ekanshrajput1607@gmail.com',
   contactPhone: import.meta.env.VITE_CONTACT_PHONE || '',
-  companyAddress: import.meta.env.VITE_COMPANY_ADDRESS || 'N/A',
+  companyAddress: import.meta.env.VITE_COMPANY_ADDRESS || '',
 
   // Demo
   demoBookingEmail: import.meta.env.VITE_DEMO_BOOKING_EMAIL || '',
