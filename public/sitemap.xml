@@ -7,7 +7,7 @@
   <!-- Homepage - Highest Priority -->
   <url>
     <loc>https://meridiancms.tech/</loc>
-    <lastmod>2026-02-21</lastmod>
+    <lastmod>2026-02-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
@@ -15,7 +15,7 @@
   <!-- About Page -->
   <url>
     <loc>https://meridiancms.tech/about</loc>
-    <lastmod>2026-02-21</lastmod>
+    <lastmod>2026-02-28</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -23,7 +23,7 @@
   <!-- Contact Page -->
   <url>
     <loc>https://meridiancms.tech/contact</loc>
-    <lastmod>2026-02-21</lastmod>
+    <lastmod>2026-02-28</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -31,7 +31,7 @@
   <!-- Privacy Policy -->
   <url>
     <loc>https://meridiancms.tech/privacy</loc>
-    <lastmod>2026-02-21</lastmod>
+    <lastmod>2026-02-28</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
@@ -39,7 +39,7 @@
   <!-- Terms of Service -->
   <url>
     <loc>https://meridiancms.tech/terms</loc>
-    <lastmod>2026-02-21</lastmod>
+    <lastmod>2026-02-28</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
@@ -47,7 +47,7 @@
   <!-- Public Admission Form -->
   <url>
     <loc>https://meridiancms.tech/admissions/apply</loc>
-    <lastmod>2026-02-21</lastmod>
+    <lastmod>2026-02-28</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { 
-  ArrowLeft, Mail, Phone, MapPin, Clock, Send, 
+  ArrowLeft, Mail, MapPin, Clock, Send, 
   MessageSquare, Headphones, Building2 
 } from 'lucide-react'
 import { SEOHead } from '../../components/seo'
@@ -66,8 +66,7 @@ export default function ContactUs() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">Email</h3>
-                  <p className="text-gray-600">contact@meridian-ems.com</p>
-                  <p className="text-gray-600">support@meridian-ems.com</p>
+                  <p className="text-gray-600">ekanshrajput1607@gmail.com</p>
                 </div>
               </motion.div>
 
@@ -75,22 +74,6 @@ export default function ContactUs() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1 }}
-                className="flex items-start gap-4"
-              >
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Phone className="w-6 h-6 text-green-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Phone</h3>
-                  <p className="text-gray-600">+91-9999999999</p>
-                  <p className="text-gray-600">+91-8888888888</p>
-                </div>
-              </motion.div>
-
-              <motion.div 
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
                 className="flex items-start gap-4"
               >
                 <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">

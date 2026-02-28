@@ -896,10 +896,12 @@ export default function LandingPage() {
                 <Mail className="w-5 h-5 text-primary-600" />
                 <span>{config.contactEmail}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Phone className="w-5 h-5 text-primary-600" />
-                <span>{config.contactPhone}</span>
-              </div>
+              {config.contactPhone && (
+                <div className="flex items-center gap-2">
+                  <Phone className="w-5 h-5 text-primary-600" />
+                  <span>{config.contactPhone}</span>
+                </div>
+              )}
             </div>
           </motion.div>
         </div>
@@ -953,10 +955,12 @@ export default function LandingPage() {
                   <Mail className="w-4 h-4 text-primary-400" />
                   <span>{config.contactEmail}</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-primary-400" />
-                  <span>{config.contactPhone}</span>
-                </li>
+                {config.contactPhone && (
+                  <li className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-primary-400" />
+                    <span>{config.contactPhone}</span>
+                  </li>
+                )}
                 <li className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-primary-400" />
                   <span>{config.companyAddress}</span>

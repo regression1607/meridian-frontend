@@ -12,10 +12,10 @@ const config = {
   appTagline: import.meta.env.VITE_APP_TAGLINE || 'Smart Education Management System',
 
   // Contact
-  supportEmail: import.meta.env.VITE_SUPPORT_EMAIL || 'N/A',
-  supportPhone: import.meta.env.VITE_SUPPORT_PHONE || 'N/A',
-  contactEmail: import.meta.env.VITE_CONTACT_EMAIL || 'N/A',
-  contactPhone: import.meta.env.VITE_CONTACT_PHONE || 'N/A',
+  supportEmail: import.meta.env.VITE_SUPPORT_EMAIL || 'ekanshrajput1607@gmail.com',
+  supportPhone: import.meta.env.VITE_SUPPORT_PHONE || '',
+  contactEmail: import.meta.env.VITE_CONTACT_EMAIL || 'ekanshrajput1607@gmail.com',
+  contactPhone: import.meta.env.VITE_CONTACT_PHONE || '',
   companyAddress: import.meta.env.VITE_COMPANY_ADDRESS || 'N/A',
 
   // Demo
