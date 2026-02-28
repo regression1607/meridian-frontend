@@ -208,7 +208,7 @@ export default function LandingPage() {
               <a href="#features" className="text-gray-600 hover:text-primary-600 transition">Features</a>
               <a href="#pricing" className="text-gray-600 hover:text-primary-600 transition">Pricing</a>
               <a href="#institutions" className="text-gray-600 hover:text-primary-600 transition">Institutions</a>
-              <a href="#contact" className="text-gray-600 hover:text-primary-600 transition">Contact</a>
+              <Link to="/contact" className="text-gray-600 hover:text-primary-600 transition">Contact</Link>
               <Link to="/login" className="text-gray-600 hover:text-primary-600 transition font-medium">
                 Login
               </Link>
@@ -238,7 +238,7 @@ export default function LandingPage() {
               <a href="#features" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 hover:text-primary-600 transition py-2">Features</a>
               <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 hover:text-primary-600 transition py-2">Pricing</a>
               <a href="#institutions" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 hover:text-primary-600 transition py-2">Institutions</a>
-              <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 hover:text-primary-600 transition py-2">Contact</a>
+              <Link to="/contact" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 hover:text-primary-600 transition py-2">Contact</Link>
               <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 hover:text-primary-600 transition py-2 font-medium">
                 Login
               </Link>
