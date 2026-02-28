@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { 
   ArrowLeft, Mail, MapPin, Clock, Send, 
-  MessageSquare, Headphones, Building2 
+  MessageSquare, Headphones, Building2, CheckCircle, AlertCircle, Loader2
 } from 'lucide-react'
 import { SEOHead } from '../../components/seo'
+import axios from 'axios'
+import config from '../../config'
 
 export default function ContactUs() {
   const [formData, setFormData] = useState({
@@ -16,11 +18,32 @@ export default function ContactUs() {
     subject: '',
     message: ''
   })
+  const [loading, setLoading] = useState(false)
+  const [status, setStatus] = useState({ type: '', message: '' })
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    alert('Thank you for your message! We will get back to you within 24 hours.')
-    setFormData({ name: '', email: '', phone: '', institution: '', subject: '', message: '' })
+    setLoading(true)
+    setStatus({ type: '', message: '' })
+
+    try {
+      const response = await axios.post(`${config.apiUrl}/contact`, formData)
+      
+      if (response.data.success) {
+        setStatus({ type: 'success', message: response.data.message })
+        setFormData({ name: '', email: '', phone: '', institution: '', subject: '', message: '' })
+      } else {
+        setStatus({ type: 'error', message: response.data.message || 'Something went wrong' })
+      }
+    } catch (error) {
+      console.error('Contact form error:', error)
+      setStatus({ 
+        type: 'error', 
+        message: error.response?.data?.message || 'Failed to send message. Please try again or email us directly.'
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleChange = (e) => {
@@ -136,6 +159,21 @@ export default function ContactUs() {
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Send us a Message</h2>
               <p className="text-gray-600 mb-6">Fill out the form and we'll get back to you within 24 hours.</p>
 
+              {status.message && (
+                <div className={`p-4 rounded-lg flex items-center gap-3 ${
+                  status.type === 'success' 
+                    ? 'bg-green-50 text-green-800 border border-green-200' 
+                    : 'bg-red-50 text-red-800 border border-red-200'
+                }`}>
+                  {status.type === 'success' ? (
+                    <CheckCircle className="w-5 h-5 flex-shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                  )}
+                  <span>{status.message}</span>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid sm:grid-cols-2 gap-6">
                   <div>
@@ -223,9 +261,19 @@ export default function ContactUs() {
 
                 <button
                   type="submit"
-                  className="w-full sm:w-auto px-8 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium flex items-center justify-center gap-2"
+                  disabled={loading}
+                  className="w-full sm:w-auto px-8 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Send Message <Send className="w-4 h-4" />
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      Send Message <Send className="w-4 h-4" />
+                    </>
+                  )}
                 </button>
               </form>
             </motion.div>
