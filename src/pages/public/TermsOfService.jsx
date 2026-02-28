@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ArrowLeft, FileText } from 'lucide-react'
 import { SEOHead } from '../../components/seo'
+import config from '../../config'
 
 export default function TermsOfService() {
   return (
@@ -167,8 +168,8 @@ export default function TermsOfService() {
               For questions about these Terms of Service:
             </p>
             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <p className="text-gray-700"><strong>Email:</strong> legal@meridian-ems.com</p>
-              <p className="text-gray-700"><strong>Phone:</strong> +91-9999999999</p>
+              <p className="text-gray-700"><strong>Email:</strong> {config.contactEmail}</p>
+              {config.contactPhone && <p className="text-gray-700"><strong>Phone:</strong> {config.contactPhone}</p>}
             </div>
           </section>
         </div>

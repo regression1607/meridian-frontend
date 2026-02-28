@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Shield } from 'lucide-react'
 import { SEOHead } from '../../components/seo'
+import config from '../../config'
 
 export default function PrivacyPolicy() {
   return (
@@ -134,9 +135,9 @@ export default function PrivacyPolicy() {
               If you have questions about this Privacy Policy, please contact us at:
             </p>
             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <p className="text-gray-700"><strong>Email:</strong> privacy@meridian-ems.com</p>
-              <p className="text-gray-700"><strong>Phone:</strong> +91-9999999999</p>
-              <p className="text-gray-700"><strong>Address:</strong> Bangalore, Karnataka, India</p>
+              <p className="text-gray-700"><strong>Email:</strong> {config.contactEmail}</p>
+              {config.contactPhone && <p className="text-gray-700"><strong>Phone:</strong> {config.contactPhone}</p>}
+              {config.companyAddress && <p className="text-gray-700"><strong>Address:</strong> {config.companyAddress}</p>}
             </div>
           </section>
         </div>
