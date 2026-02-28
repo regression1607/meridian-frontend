@@ -235,14 +235,14 @@ export default function LandingPage() {
             className="md:hidden bg-white border-b border-gray-100 px-4 py-4"
           >
             <div className="flex flex-col gap-4">
-              <a href="#features" className="text-gray-600 hover:text-primary-600 transition py-2">Features</a>
-              <a href="#pricing" className="text-gray-600 hover:text-primary-600 transition py-2">Pricing</a>
-              <a href="#institutions" className="text-gray-600 hover:text-primary-600 transition py-2">Institutions</a>
-              <a href="#contact" className="text-gray-600 hover:text-primary-600 transition py-2">Contact</a>
-              <Link to="/login" className="text-gray-600 hover:text-primary-600 transition py-2 font-medium">
+              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 hover:text-primary-600 transition py-2">Features</a>
+              <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 hover:text-primary-600 transition py-2">Pricing</a>
+              <a href="#institutions" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 hover:text-primary-600 transition py-2">Institutions</a>
+              <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 hover:text-primary-600 transition py-2">Contact</a>
+              <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 hover:text-primary-600 transition py-2 font-medium">
                 Login
               </Link>
-              <Link to="/login" className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition text-center">
+              <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition text-center">
                 Get Started
               </Link>
             </div>
